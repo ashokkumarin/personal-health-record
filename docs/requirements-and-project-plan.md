@@ -1,5 +1,7 @@
 # Personal Health Record (PHR) Management System
 
+> **Status: Delivered as MVP v1.0.** This document is the original discovery/planning doc and is kept as-is for historical context. For the as-built spec, data model, and delivery history, see [docs/specs/mvp-spec.md](specs/mvp-spec.md) and [docs/specs/technical-design.md](specs/technical-design.md); for the current setup/feature list see the root [README.md](../README.md).
+
 ## 1. Project Summary
 
 This project aims to build a mobile-first personal health record system for India, where health documents are often scattered across paper prescriptions, lab reports, pharmacy bills, and handwritten notes. The MVP will let users capture or upload these documents, organize them by patient, and view them in a timeline.

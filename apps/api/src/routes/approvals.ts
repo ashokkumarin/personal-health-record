@@ -1,6 +1,6 @@
-m type { FastifyInstance } from "fastify";
-m { prisma } from "../db.js";
-m { authenticate } from "../plugins/authenticate.js";
+import type { FastifyInstance } from "fastify";
+import { prisma } from "../db.js";
+import { authenticate } from "../plugins/authenticate.js";
 
 export async function approvalsRoutes(app: FastifyInstance) {
   app.addHook("preHandler", authenticate);

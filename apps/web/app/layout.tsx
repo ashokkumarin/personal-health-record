@@ -8,8 +8,8 @@ const roboto = Roboto({
 });
 
 export const metadata = {
-  title: "PHR",
-  description: "Personal Health Record",
+  title: "PHR — Personal Health Record",
+  description: "Personal Health Record — keep your family's medical documents organized in one secure place.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

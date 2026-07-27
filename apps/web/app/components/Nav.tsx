@@ -5,6 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { useEffect, useState, useCallback } from "react";
 import AppBar from "@mui/material/AppBar";
 import Toolbar from "@mui/material/Toolbar";
+import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Stack from "@mui/material/Stack";
 import IconButton from "@mui/material/IconButton";
@@ -19,7 +20,6 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import LogoutIcon from "@mui/icons-material/Logout";
 import MenuIcon from "@mui/icons-material/Menu";
 import NotificationsIcon from "@mui/icons-material/Notifications";
-import HealthAndSafetyIcon from "@mui/icons-material/HealthAndSafetyOutlined";
 import { getCurrentUser, clearSession, SESSION_CHANGED_EVENT } from "../../lib/auth";
 import { familyClient, APPROVALS_CHANGED_EVENT } from "../../lib/api";
 import Sidebar from "./Sidebar";
@@ -88,7 +88,12 @@ export default function Nav() {
           <IconButton color="inherit" onClick={() => setSidebarOpen(true)} sx={{ mr: 1 }}>
             <MenuIcon />
           </IconButton>
-          <HealthAndSafetyIcon sx={{ mr: 1 }} />
+          <Box
+            component="img"
+            src="/logo.svg"
+            alt="PHR logo"
+            sx={{ width: 32, height: 32, mr: 1, borderRadius: "8px" }}
+          />
           <Typography
             variant="h6"
             component={Link}

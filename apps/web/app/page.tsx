@@ -9,6 +9,7 @@ import Button from "@mui/material/Button";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
 import Alert from "@mui/material/Alert";
+import Box from "@mui/material/Box";
 import IconButton from "@mui/material/IconButton";
 import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
@@ -98,6 +99,7 @@ export default function Home() {
   if (!loggedIn) {
     return (
       <Container maxWidth="sm" sx={{ mt: 10, textAlign: "center" }}>
+        <Box component="img" src="/logo.svg" alt="PHR logo" sx={{ width: 72, height: 72, mb: 2 }} />
         <Typography variant="h3" component="h1" gutterBottom sx={{ fontWeight: 600 }}>
           Personal Health Record
         </Typography>

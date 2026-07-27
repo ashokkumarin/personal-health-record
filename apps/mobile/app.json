@@ -1,0 +1,20 @@
+{
+  "expo": {
+    "name": "PHR",
+    "slug": "phr-mobile",
+    "version": "0.0.1",
+    "orientation": "portrait",
+    "userInterfaceStyle": "automatic",
+    "ios": { "supportsTablet": true },
+    "android": {},
+    "web": { "bundler": "metro" },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow PHR to use the camera to capture medical documents."
+        }
+      ]
+    ]
+  }
+}

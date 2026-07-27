@@ -1,0 +1,15 @@
+{
+  "name": "personal-health-record",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace apps/api",
+    "dev:web": "npm run dev --workspace apps/web",
+    "dev:mobile": "npm run start --workspace apps/mobile",
+    "test:api": "npm run test --workspace apps/api",
+    "build:shared": "npm run build --workspace packages/shared"
+  }
+}

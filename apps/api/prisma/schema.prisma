@@ -1,0 +1,128 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  passwordHash String
+  phone        String?
+  avatarPath   String?
+  createdAt    DateTime @default(now())
+
+  ownedFamilies             Family[]           @relation("FamilyOwner")
+  familyMemberships         FamilyMembership[]
+  linkedPatientProfile      PatientProfile?
+  approvalRequestsReceived  ApprovalRequest[]  @relation("ApprovalTarget")
+  approvalRequestsRequested ApprovalRequest[]  @relation("ApprovalRequestedBy")
+  uploadedRecords           MedicalRecord[]
+}
+
+enum FamilyRole {
+  OWNER
+  ADMIN
+  MEMBER
+}
+
+enum MembershipStatus {
+  ACTIVE
+  PENDING
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+model Family {
+  id        String    @id @default(uuid())
+  // Uniqueness on name is enforced only among non-deleted families via a
+  // partial unique index (see migration family_name_unique_active_only) —
+  // Prisma's schema DSL can't express a partial/filtered unique index, so
+  // there's deliberately no @unique here; a plain one would block reusing a
+  // name after a soft delete.
+  name      String
+  ownerId   String
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  owner       User               @relation("FamilyOwner", fields: [ownerId], references: [id])
+  memberships FamilyMembership[]
+  patients    PatientProfile[]
+}
+
+model FamilyMembership {
+  id        String           @id @default(uuid())
+  familyId  String
+  userId    String
+  role      FamilyRole
+  status    MembershipStatus @default(ACTIVE)
+  relation  String?
+  createdAt DateTime         @default(now())
+
+  family Family @relation(fields: [familyId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@unique([familyId, userId])
+}
+
+model PatientProfile {
+  id              String    @id @default(uuid())
+  familyId        String
+  linkedUserId    String?   @unique
+  name            String
+  dateOfBirth     DateTime?
+  gender          String?
+  visibleToFamily Boolean   @default(false)
+  createdAt       DateTime  @default(now())
+
+  family           Family            @relation(fields: [familyId], references: [id])
+  linkedUser       User?             @relation(fields: [linkedUserId], references: [id])
+  approvalRequests ApprovalRequest[]
+  records          MedicalRecord[]
+}
+
+model ApprovalRequest {
+  id            String         @id @default(uuid())
+  patientId     String
+  targetUserId  String
+  requestedById String
+  status        ApprovalStatus @default(PENDING)
+  createdAt     DateTime       @default(now())
+  respondedAt   DateTime?
+
+  patient     PatientProfile @relation(fields: [patientId], references: [id])
+  targetUser  User           @relation("ApprovalTarget", fields: [targetUserId], references: [id])
+  requestedBy User           @relation("ApprovalRequestedBy", fields: [requestedById], references: [id])
+}
+
+enum RecordType {
+  PRESCRIPTION
+  LAB_REPORT
+  PHARMACY_BILL
+  NOTE
+}
+
+model MedicalRecord {
+  id            String     @id @default(uuid())
+  patientId     String
+  recordType    RecordType
+  title         String
+  filePath      String
+  fileType      String
+  thumbnailPath String?
+  ocrText       String?
+  capturedAt    DateTime?
+  uploadedAt    DateTime   @default(now())
+  createdById   String
+
+  patient   PatientProfile @relation(fields: [patientId], references: [id])
+  createdBy User           @relation(fields: [createdById], references: [id])
+}

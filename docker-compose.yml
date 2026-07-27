@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: phr
+      POSTGRES_PASSWORD: phr
+      POSTGRES_DB: phr
+    ports:
+      - "5432:5432"
+    volumes:
+      - phr-postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres-init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U phr"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: phr-minio
+      MINIO_ROOT_PASSWORD: phr-minio-secret
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - phr-minio-data:/data
+
+volumes:
+  phr-postgres-data:
+  phr-minio-data:

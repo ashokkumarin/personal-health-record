@@ -1,14 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import type { MedicalRecord, RecordType } from "@phr/shared";
-import { recordTypes, updateRecordFieldsSchema } from "@phr/shared";
+import { recordTypes, recordTypeLabels, updateRecordFieldsSchema } from "@phr/shared";
 import { recordsClient } from "../../lib/api";
 import { todayDateInputValue } from "../../lib/date";
 import ImageList from "@mui/material/ImageList";
 import ImageListItem from "@mui/material/ImageListItem";
 import ImageListItemBar from "@mui/material/ImageListItemBar";
 import Box from "@mui/material/Box";
+import Typography from "@mui/material/Typography";
+import Divider from "@mui/material/Divider";
 import IconButton from "@mui/material/IconButton";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
@@ -33,6 +35,10 @@ interface RecordGridProps {
   onChanged: () => void;
 }
 
+function monthYearLabel(dateStr: string): string {
+  return new Date(dateStr).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+}
+
 export default function RecordGrid({ records, onChanged }: RecordGridProps) {
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [menuRecordId, setMenuRecordId] = useState<string | null>(null);
@@ -51,6 +57,20 @@ export default function RecordGrid({ records, onChanged }: RecordGridProps) {
   const [error, setError] = useState<string | null>(null);
 
   const menuRecord = records.find((r) => r.id === menuRecordId) ?? null;
+
+  const groups = useMemo(() => {
+    const byMonth = new Map<string, MedicalRecord[]>();
+    for (const record of records) {
+      const key = monthYearLabel(record.capturedAt ?? record.uploadedAt);
+      const bucket = byMonth.get(key);
+      if (bucket) {
+        bucket.push(record);
+      } else {
+        byMonth.set(key, [record]);
+      }
+    }
+    return Array.from(byMonth.entries());
+  }, [records]);
 
   async function openPreview(record: MedicalRecord) {
     setError(null);
@@ -131,54 +151,68 @@ export default function RecordGrid({ records, onChanged }: RecordGridProps) {
         </Alert>
       )}
 
-      <ImageList cols={4} gap={8} sx={{ gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))!important" }}>
-        {records.map((record) => (
-          <ImageListItem key={record.id} sx={{ cursor: "pointer" }}>
-            {record.thumbnailUrl ? (
-              <img
-                src={record.thumbnailUrl}
-                alt={record.title}
-                loading="lazy"
-                onClick={() => openPreview(record)}
-                style={{ aspectRatio: "1 / 1", objectFit: "cover" }}
-              />
-            ) : (
-              <Box
-                onClick={() => openPreview(record)}
-                sx={{
-                  aspectRatio: "1 / 1",
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  bgcolor: "action.hover",
-                }}
-              >
-                {record.fileType === "application/pdf" ? (
-                  <PictureAsPdfIcon sx={{ fontSize: 48, color: "text.secondary" }} />
+      {groups.map(([label, groupRecords]) => (
+        <Box key={label} sx={{ mb: 3 }}>
+          <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", mb: 1 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              {label}
+            </Typography>
+            <Divider sx={{ flex: 1 }} />
+          </Stack>
+          <ImageList
+            cols={4}
+            gap={8}
+            sx={{ gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))!important" }}
+          >
+            {groupRecords.map((record) => (
+              <ImageListItem key={record.id} sx={{ cursor: "pointer" }}>
+                {record.thumbnailUrl ? (
+                  <img
+                    src={record.thumbnailUrl}
+                    alt={record.title}
+                    loading="lazy"
+                    onClick={() => openPreview(record)}
+                    style={{ aspectRatio: "1 / 1", objectFit: "cover" }}
+                  />
                 ) : (
-                  <ImageIcon sx={{ fontSize: 48, color: "text.secondary" }} />
+                  <Box
+                    onClick={() => openPreview(record)}
+                    sx={{
+                      aspectRatio: "1 / 1",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      bgcolor: "action.hover",
+                    }}
+                  >
+                    {record.fileType === "application/pdf" ? (
+                      <PictureAsPdfIcon sx={{ fontSize: 48, color: "text.secondary" }} />
+                    ) : (
+                      <ImageIcon sx={{ fontSize: 48, color: "text.secondary" }} />
+                    )}
+                  </Box>
                 )}
-              </Box>
-            )}
-            <ImageListItemBar
-              title={record.title}
-              subtitle={(record.capturedAt ?? record.uploadedAt).slice(0, 10)}
-              actionIcon={
-                <IconButton
-                  sx={{ color: "white" }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setMenuAnchor(e.currentTarget);
-                    setMenuRecordId(record.id);
-                  }}
-                >
-                  <MoreVertIcon />
-                </IconButton>
-              }
-            />
-          </ImageListItem>
-        ))}
-      </ImageList>
+                <ImageListItemBar
+                  title={record.title}
+                  subtitle={(record.capturedAt ?? record.uploadedAt).slice(0, 10)}
+                  actionIcon={
+                    <IconButton
+                      sx={{ color: "white" }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setMenuAnchor(e.currentTarget);
+                        setMenuRecordId(record.id);
+                      }}
+                    >
+                      <MoreVertIcon />
+                    </IconButton>
+                  }
+                />
+              </ImageListItem>
+            ))}
+          </ImageList>
+        </Box>
+      ))}
 
       <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
         <MenuItem onClick={() => menuRecord && openEdit(menuRecord)}>
@@ -242,7 +276,7 @@ export default function RecordGrid({ records, onChanged }: RecordGridProps) {
             >
               {recordTypes.map((t) => (
                 <MenuItem key={t} value={t}>
-                  {t}
+                  {recordTypeLabels[t]}
                 </MenuItem>
               ))}
             </TextField>

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import type { FamilyDetail, AddMemberInput, RecordType } from "@phr/shared";
-import { addMemberSchema, recordTypes, uploadRecordFieldsSchema } from "@phr/shared";
+import { addMemberSchema, recordTypes, recordTypeLabels, uploadRecordFieldsSchema } from "@phr/shared";
 import { familyClient, recordsClient } from "../../../lib/api";
 import { getToken, getCurrentUser } from "../../../lib/auth";
 import Container from "@mui/material/Container";
@@ -33,6 +33,7 @@ import DialogActions from "@mui/material/DialogActions";
 import EditIcon from "@mui/icons-material/Edit";
 import { ApiRequestError } from "@phr/shared";
 import { todayDateInputValue } from "../../../lib/date";
+import PageBreadcrumbs from "../../components/PageBreadcrumbs";
 
 type Mode = AddMemberInput["mode"];
 
@@ -110,7 +111,7 @@ export default function FamilyDetailPage() {
     setError(null);
     try {
       await familyClient().deleteFamily(id);
-      router.push("/families");
+      router.push("/settings");
     } catch {
       setError("Could not delete this family.");
       setDeleteDialogOpen(false);
@@ -221,6 +222,7 @@ export default function FamilyDetailPage() {
 
   return (
     <Container maxWidth="sm" sx={{ mt: 4, mb: 6 }}>
+      <PageBreadcrumbs items={[{ label: "Settings", href: "/settings" }, { label: family.name }]} />
       {isEditingName ? (
         <Stack component="form" onSubmit={handleRename} direction="row" spacing={1} sx={{ mb: 1 }}>
           <TextField
@@ -387,7 +389,7 @@ export default function FamilyDetailPage() {
             >
               {recordTypes.map((t) => (
                 <MenuItem key={t} value={t}>
-                  {t}
+                  {recordTypeLabels[t]}
                 </MenuItem>
               ))}
             </TextField>

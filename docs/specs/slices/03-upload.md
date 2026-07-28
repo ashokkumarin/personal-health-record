@@ -2,6 +2,8 @@
 
 Implements requirements-and-project-plan.md Section 6.3 (Record Ingestion) — capturing/uploading a document and storing it against a patient, with best-effort OCR.
 
+> Storage backend note: this slice originally stored files in MinIO (S3-compatible object storage). Slice 9 (`09-local-media-storage.md`) later replaced that with local disk storage behind the same `storage.ts` interface — everything below describing "MinIO" reflects the original implementation; the current backend is local disk.
+
 ## 1. Acceptance Criteria
 
 1. Given an active member of a patient's family, when they upload a supported file (JPEG, PNG, or PDF) for that patient, then a `MedicalRecord` is created with the file stored in MinIO and metadata (type, title, uploader) persisted.

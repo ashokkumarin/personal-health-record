@@ -2,15 +2,13 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import type { Family } from "@phr/shared";
 import { ApiRequestError } from "@phr/shared";
 import { familyClient } from "../../lib/api";
-import { getToken } from "../../lib/auth";
-import Container from "@mui/material/Container";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
+import CardHeader from "@mui/material/CardHeader";
 import List from "@mui/material/List";
 import ListItem from "@mui/material/ListItem";
 import ListItemButton from "@mui/material/ListItemButton";
@@ -29,8 +27,7 @@ import GroupsIcon from "@mui/icons-material/Groups";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 
-export default function FamiliesPage() {
-  const router = useRouter();
+export default function FamilyGroupsSection() {
   const [families, setFamilies] = useState<Family[] | null>(null);
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -43,17 +40,12 @@ export default function FamiliesPage() {
     familyClient()
       .listFamilies()
       .then(setFamilies)
-      .catch(() => setError("Could not load families."));
+      .catch(() => setError("Could not load family groups."));
   }
 
   useEffect(() => {
-    if (!getToken()) {
-      router.push("/login");
-      return;
-    }
     load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router]);
+  }, []);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -70,7 +62,7 @@ export default function FamiliesPage() {
       if (err instanceof ApiRequestError && err.body.error === "FAMILY_NAME_TAKEN") {
         setError("A family with this name already exists.");
       } else {
-        setError("Could not create family. Please try again.");
+        setError("Could not create family group. Please try again.");
       }
     }
   }
@@ -87,7 +79,7 @@ export default function FamiliesPage() {
       if (err instanceof ApiRequestError && err.body.error === "FAMILY_NAME_TAKEN") {
         setError("A family with this name already exists.");
       } else {
-        setError("Could not rename this family.");
+        setError("Could not rename this family group.");
       }
     }
   }
@@ -100,15 +92,15 @@ export default function FamiliesPage() {
       setPendingDelete(null);
       load();
     } catch {
-      setError("Could not delete this family.");
+      setError("Could not delete this family group.");
       setPendingDelete(null);
     }
   }
 
   return (
-    <Container maxWidth="sm" sx={{ mt: 4, mb: 6 }}>
-      <Typography variant="h4" sx={{ fontWeight: 600 }} gutterBottom>
-        Your families
+    <>
+      <Typography variant="h5" sx={{ fontWeight: 600, mb: 2 }}>
+        Family Groups
       </Typography>
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -117,6 +109,7 @@ export default function FamiliesPage() {
       )}
 
       <Card variant="outlined" sx={{ mb: 3 }}>
+        <CardHeader title="Manage family groups" titleTypographyProps={{ variant: "h6" }} />
         {families && families.length > 0 ? (
           <List disablePadding>
             {families.map((family) => {
@@ -191,17 +184,15 @@ export default function FamiliesPage() {
         ) : (
           <CardContent>
             <Typography color="text.secondary">
-              You don&apos;t belong to any families yet.
+              You don&apos;t belong to any family groups yet.
             </Typography>
           </CardContent>
         )}
       </Card>
 
       <Card variant="outlined">
+        <CardHeader title="Add a family group" titleTypographyProps={{ variant: "h6" }} />
         <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Create a family
-          </Typography>
           <Stack component="form" onSubmit={handleCreate} direction="row" spacing={2}>
             <TextField
               label="Family name"
@@ -221,8 +212,9 @@ export default function FamiliesPage() {
         <DialogTitle>Delete &quot;{pendingDelete?.name}&quot;?</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            This removes the family from your families list. Patient profiles and their medical
-            records are not deleted and remain accessible. This can&apos;t be undone from the app.
+            This removes the family group from your families list. Patient profiles and their
+            medical records are not deleted and remain accessible. This can&apos;t be undone from
+            the app.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
@@ -232,6 +224,6 @@ export default function FamiliesPage() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Container>
+    </>
   );
 }

@@ -17,9 +17,12 @@ import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
+import Grid from "@mui/material/Grid";
+import Collapse from "@mui/material/Collapse";
 import AddIcon from "@mui/icons-material/Add";
-import type { MyTimeline, RecordType } from "@phr/shared";
-import { recordTypes, uploadRecordFieldsSchema } from "@phr/shared";
+import FilterListIcon from "@mui/icons-material/FilterList";
+import type { MedicalRecord, PatientProfile, RecordType } from "@phr/shared";
+import { recordTypes, recordTypeLabels, uploadRecordFieldsSchema } from "@phr/shared";
 import { getToken } from "../lib/auth";
 import { recordsClient } from "../lib/api";
 import { todayDateInputValue } from "../lib/date";
@@ -28,8 +31,16 @@ import RecordGrid from "./components/RecordGrid";
 export default function Home() {
   const [loggedIn, setLoggedIn] = useState(false);
   const [checked, setChecked] = useState(false);
-  const [timeline, setTimeline] = useState<MyTimeline | null>(null);
+  const [patient, setPatient] = useState<PatientProfile | null>(null);
+  const [patientChecked, setPatientChecked] = useState(false);
+  const [records, setRecords] = useState<MedicalRecord[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [recordType, setRecordType] = useState<RecordType | "">("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [q, setQ] = useState("");
 
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadRecordType, setUploadRecordType] = useState<RecordType>("PRESCRIPTION");
@@ -38,10 +49,31 @@ export default function Home() {
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
+  function search(e?: React.FormEvent, forPatient?: PatientProfile) {
+    e?.preventDefault();
+    const target = forPatient ?? patient;
+    if (!target) return;
+    setError(null);
+    recordsClient()
+      .listRecords(target.familyId, {
+        patientId: target.id,
+        recordType: recordType || undefined,
+        dateFrom: dateFrom || undefined,
+        dateTo: dateTo || undefined,
+        q: q || undefined,
+      })
+      .then(setRecords)
+      .catch(() => setError("Could not load records."));
+  }
+
   function load() {
     recordsClient()
       .getMyTimeline()
-      .then(setTimeline)
+      .then((timeline) => {
+        setPatient(timeline.patient);
+        setPatientChecked(true);
+        if (timeline.patient) search(undefined, timeline.patient);
+      })
       .catch(() => setError("Could not load your timeline."));
   }
 
@@ -51,6 +83,7 @@ export default function Home() {
     setChecked(true);
     if (!hasToken) return;
     load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function openUploadDialog() {
@@ -65,7 +98,7 @@ export default function Home() {
     e.preventDefault();
     setUploadError(null);
 
-    if (!timeline?.patient) return;
+    if (!patient) return;
 
     const parsed = uploadRecordFieldsSchema.safeParse({
       recordType: uploadRecordType,
@@ -82,7 +115,7 @@ export default function Home() {
     }
 
     try {
-      await recordsClient().uploadRecord(timeline.patient.id, parsed.data, {
+      await recordsClient().uploadRecord(patient.id, parsed.data, {
         blob: uploadFile,
         name: uploadFile.name,
         type: uploadFile.type,
@@ -120,14 +153,22 @@ export default function Home() {
 
   return (
     <Container maxWidth="md" sx={{ mt: 4, mb: 6 }}>
-      <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 2 }}>
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 2, justifyContent: "space-between" }}>
         <Typography variant="h4" sx={{ fontWeight: 600 }}>
-          {timeline?.patient ? `${timeline.patient.name}'s Timeline` : "Your timeline"}
+          {patient ? `${patient.name}'s Timeline` : "Your timeline"}
         </Typography>
-        {timeline?.patient && (
-          <IconButton color="primary" onClick={openUploadDialog}>
-            <AddIcon />
-          </IconButton>
+        {patient && (
+          <Stack direction="row" spacing={1}>
+            <IconButton
+              color={filtersOpen ? "primary" : "default"}
+              onClick={() => setFiltersOpen((open) => !open)}
+            >
+              <FilterListIcon />
+            </IconButton>
+            <IconButton color="primary" onClick={openUploadDialog}>
+              <AddIcon />
+            </IconButton>
+          </Stack>
         )}
       </Stack>
       {error && (
@@ -136,7 +177,72 @@ export default function Home() {
         </Alert>
       )}
 
-      {timeline && timeline.patient === null && (
+      {patient && (
+        <Collapse in={filtersOpen}>
+          <Card variant="outlined" sx={{ mb: 3 }}>
+            <CardContent>
+              <Stack component="form" onSubmit={search} spacing={2}>
+                <Grid container spacing={2}>
+                  <Grid size={{ xs: 12, sm: 6, md: 4 }}>
+                    <TextField
+                      select
+                      label="Document type"
+                      value={recordType}
+                      onChange={(e) => setRecordType(e.target.value as RecordType)}
+                      fullWidth
+                      size="small"
+                    >
+                      <MenuItem value="">All types</MenuItem>
+                      {recordTypes.map((t) => (
+                        <MenuItem key={t} value={t}>
+                          {recordTypeLabels[t]}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+                  <Grid size={{ xs: 6, sm: 3, md: 4 }}>
+                    <TextField
+                      label="From"
+                      type="date"
+                      value={dateFrom}
+                      onChange={(e) => setDateFrom(e.target.value)}
+                      fullWidth
+                      size="small"
+                      slotProps={{ inputLabel: { shrink: true } }}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 6, sm: 3, md: 4 }}>
+                    <TextField
+                      label="To"
+                      type="date"
+                      value={dateTo}
+                      onChange={(e) => setDateTo(e.target.value)}
+                      fullWidth
+                      size="small"
+                      slotProps={{ inputLabel: { shrink: true } }}
+                    />
+                  </Grid>
+                  <Grid size={{ xs: 12 }}>
+                    <TextField
+                      label="Search"
+                      value={q}
+                      onChange={(e) => setQ(e.target.value)}
+                      placeholder="Keyword"
+                      fullWidth
+                      size="small"
+                    />
+                  </Grid>
+                </Grid>
+                <Button type="submit" variant="contained" sx={{ alignSelf: "flex-start" }}>
+                  Apply filters
+                </Button>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Collapse>
+      )}
+
+      {patientChecked && patient === null && (
         <Card variant="outlined">
           <CardContent>
             <Typography color="text.secondary">
@@ -147,13 +253,13 @@ export default function Home() {
         </Card>
       )}
 
-      {timeline && timeline.patient !== null && (
-        timeline.records.length > 0 ? (
-          <RecordGrid records={timeline.records} onChanged={load} />
+      {patient !== null && records !== null && (
+        records.length > 0 ? (
+          <RecordGrid records={records} onChanged={() => search()} />
         ) : (
           <Card variant="outlined">
             <CardContent>
-              <Typography color="text.secondary">No records yet.</Typography>
+              <Typography color="text.secondary">No records match these filters.</Typography>
             </CardContent>
           </Card>
         )
@@ -172,7 +278,7 @@ export default function Home() {
             >
               {recordTypes.map((t) => (
                 <MenuItem key={t} value={t}>
-                  {t}
+                  {recordTypeLabels[t]}
                 </MenuItem>
               ))}
             </TextField>

@@ -13,7 +13,7 @@ apps/
   mobile/         Expo (React Native) app
 packages/
   shared/         Shared TypeScript types + Zod schemas + API client, consumed by api/web/mobile
-docker-compose.yml   Local Postgres + MinIO (S3-compatible storage) for dev
+docker-compose.yml   Local Postgres for dev
 ```
 
 One `package.json` at the root defines the npm workspaces; each app/package has its own `package.json` and `tsconfig.json`. `packages/shared` is built once and imported by the other three so request/response shapes can't drift between backend and clients.
@@ -30,7 +30,7 @@ apps/api (Fastify)
 Postgres
 ```
 
-File uploads go directly from the API process to MinIO/S3 (`apps/api/src/storage.ts`); downloads and thumbnails are served via short-lived signed URLs (`getSignedDownloadUrl`) computed locally (HMAC), not proxied through the API.
+File uploads are written directly to local disk by the API process (`apps/api/src/storage.ts`), under a configurable `MEDIA_ROOT` folder. Downloads and thumbnails are served via short-lived HMAC-signed URLs pointing at the API's own `GET /files/*` route (see Section 9) — same signed-URL shape and expiry as the S3 presigned URLs this replaced (Slice 9), so nothing above `storage.ts` had to change.
 
 ## 3. Auth Strategy (Slice 1)
 
@@ -121,9 +121,10 @@ Example (`POST /auth/register`):
 
 `docker-compose.yml` provides:
 - `postgres` — dev/test database
-- `minio` — S3-compatible storage for original files and generated thumbnails
 
-`.env.example` documents `DATABASE_URL`, `JWT_SECRET`, `S3_ENDPOINT`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_BUCKET`.
+Uploaded files/thumbnails/avatars live on local disk under `MEDIA_ROOT` (default `./data/media`, relative to `apps/api`) — no separate storage service to run. `MEDIA_ROOT` can point at any host path, including one bind-mounted as a docker volume if the API is containerized later.
+
+`.env.example` documents `DATABASE_URL`, `JWT_SECRET`, `MEDIA_ROOT`, `API_PUBLIC_URL`.
 
 Schema changes are applied as hand-written SQL migrations under `apps/api/prisma/migrations/` (`prisma migrate dev` requires an interactive data-loss confirmation this environment can't provide), run via `prisma migrate deploy` against both `.env` (dev) and `.env.test` (test) databases, followed by `prisma generate`.
 
@@ -138,3 +139,12 @@ Schema changes are applied as hand-written SQL migrations under `apps/api/prisma
 - Images (`image/jpeg`, `image/png`): resized via `sharp` to fit within 300×300, encoded as JPEG.
 - PDFs: first page rendered via `pdfjs-dist` (legacy Node build) + `canvas` (node-canvas), then re-encoded through `sharp` to the same normalized JPEG format — a real rendered page, not a placeholder icon.
 - `generateThumbnail()` never throws; any failure (unsupported type, corrupt file) returns `null` and the UI falls back to a generic file-type tile. Same best-effort contract as OCR (`ocr.ts`).
+
+## 9. Local Media Storage (Slice 9)
+
+`apps/api/src/storage.ts`'s public interface (`uploadObject`, `getSignedDownloadUrl`, `deleteObject`) is unchanged from the S3/MinIO-backed implementation it replaced — every caller (`records.ts`, `users.ts`) was written against that interface, not against S3 directly, so this was a drop-in swap.
+
+- `uploadObject`/`deleteObject` read/write directly under `MEDIA_ROOT`, creating parent directories as needed. Keys are validated to resolve inside `MEDIA_ROOT` (rejecting `..` traversal) before any filesystem access.
+- `getSignedDownloadUrl(key)` builds a URL to the API's own `GET /files/*` route (`apps/api/src/routes/files.ts`), signed with an HMAC (`expires` + `sig` query params, 15-minute TTL) — the same shape and lifetime as the S3 presigned URLs it replaced, so browser `<img>`/`<iframe>` tags that fetch these URLs directly (no `Authorization` header) needed no changes.
+- `GET /files/*` is intentionally unauthenticated (mirroring the old presigned-URL behavior) but rejects any request whose signature doesn't match the requested key or has expired; content type is derived from the file extension (uploads are restricted to `.jpg`/`.jpeg`/`.png`/`.pdf` at write time).
+- `ensureMediaRoot()` (called once at API startup, replacing the old `ensureBucket()`) creates `MEDIA_ROOT` if it doesn't exist.

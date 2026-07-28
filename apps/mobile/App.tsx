@@ -11,6 +11,7 @@ import {
   createFamilyClient,
   createRecordsClient,
   recordTypes,
+  recordTypeLabels,
   type Family,
   type FamilyDetail,
   type MedicalRecord,
@@ -273,7 +274,7 @@ export default function App() {
             {recordTypes.map((t) => (
               <Button
                 key={t}
-                title={`${uploadRecordType === t ? "✓ " : ""}${t}`}
+                title={`${uploadRecordType === t ? "✓ " : ""}${recordTypeLabels[t]}`}
                 onPress={() => setUploadRecordType(t)}
               />
             ))}
@@ -298,7 +299,7 @@ export default function App() {
             {records.length === 0 && <Text>No records yet.</Text>}
             {records.map((r) => (
               <Text key={r.id}>
-                {(r.capturedAt ?? r.uploadedAt).slice(0, 10)} — {r.recordType} — {r.title}
+                {(r.capturedAt ?? r.uploadedAt).slice(0, 10)} — {recordTypeLabels[r.recordType]} — {r.title}
               </Text>
             ))}
           </>

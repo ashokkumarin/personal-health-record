@@ -6,3 +6,4 @@ build/
 *.log
 .env
 .env.local
+apps/api/data/

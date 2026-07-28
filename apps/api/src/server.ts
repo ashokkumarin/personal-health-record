@@ -1,11 +1,11 @@
 import { buildApp } from "./app.js";
-import { ensureBucket } from "./storage.js";
+import { ensureMediaRoot } from "./storage.js";
 
 const port = Number(process.env.API_PORT ?? 4000);
 
-ensureBucket()
+ensureMediaRoot()
   .catch((err) => {
-    console.error("Failed to ensure MinIO bucket exists:", err);
+    console.error("Failed to create media storage directory:", err);
   })
   .then(() =>
     buildApp().listen({ port, host: "0.0.0.0" })

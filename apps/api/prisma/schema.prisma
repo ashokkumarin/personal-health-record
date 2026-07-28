@@ -1,5 +1,9 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  // native covers host dev (Windows); debian-openssl-3.0.x covers the docker
+  // runtime image (node:22-bookworm-slim) regardless of whether openssl happens
+  // to be installed in the build stage when `prisma generate` runs.
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {

@@ -1,7 +1,10 @@
 import { createAuthClient, createFamilyClient, createRecordsClient, createUserClient } from "@phr/shared";
 import { getToken } from "./auth";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:4000";
+// Relative path proxied to the API by app/api/[...path]/route.ts (see API_INTERNAL_URL
+// there) — the browser never needs to know the API's actual host/port. Override with
+// NEXT_PUBLIC_API_URL only if you need the browser to call the API directly.
+const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api";
 
 export const authClient = createAuthClient(API_URL);
 

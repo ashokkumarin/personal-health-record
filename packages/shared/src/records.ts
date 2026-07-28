@@ -11,6 +11,16 @@ export const recordTypes: RecordType[] = [
   "NOTE",
 ];
 
+// Display labels only — the underlying values above are unchanged (stored in the
+// database and sent over the API as-is) so no data migration is needed for a
+// wording change.
+export const recordTypeLabels: Record<RecordType, string> = {
+  PRESCRIPTION: "Encounter Notes",
+  LAB_REPORT: "Lab Report",
+  PHARMACY_BILL: "Pharmacy Bill",
+  NOTE: "Note",
+};
+
 export const uploadRecordFieldsSchema = z.object({
   recordType: z.enum(["PRESCRIPTION", "LAB_REPORT", "PHARMACY_BILL", "NOTE"]),
   title: z.string().min(1, "Title is required"),

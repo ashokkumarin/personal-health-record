@@ -152,5 +152,6 @@ Delivered in order (see each slice doc for full acceptance criteria and definiti
 6. `06-navigation-profile-settings.md` — Navigation, profile & settings
 7. `07-record-thumbnails-preview-edit-delete.md` — Record thumbnails, preview, edit & delete
 8. `08-branding-and-versioning.md` — Branding & versioning (MVP v1.0)
+9. `09-local-media-storage.md` — Local disk media storage (replaces MinIO)
 
 No further slices are currently planned; this is the MVP v1.0 release.

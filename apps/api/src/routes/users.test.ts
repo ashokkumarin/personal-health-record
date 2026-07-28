@@ -3,7 +3,7 @@ import FormData from "form-data";
 import { buildApp } from "../app.js";
 import { prisma } from "../db.js";
 import { registerUser, resetDb } from "../test-utils.js";
-import { ensureBucket } from "../storage.js";
+import { ensureMediaRoot } from "../storage.js";
 
 const app = buildApp();
 
@@ -13,7 +13,7 @@ const TINY_PNG = Buffer.from(
 );
 
 beforeAll(async () => {
-  await ensureBucket();
+  await ensureMediaRoot();
 });
 
 beforeEach(resetDb);

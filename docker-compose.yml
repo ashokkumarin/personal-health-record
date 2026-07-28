@@ -16,18 +16,41 @@ services:
       timeout: 5s
       retries: 5
 
-  minio:
-    image: minio/minio:latest
-    command: server /data --console-address ":9001"
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
     environment:
-      MINIO_ROOT_USER: phr-minio
-      MINIO_ROOT_PASSWORD: phr-minio-secret
+      DATABASE_URL: postgresql://phr:phr@postgres:5432/phr
+      JWT_SECRET: ${JWT_SECRET}
+      MEDIA_ROOT: /app/media
+      API_PORT: ${API_PORT}
+      API_PUBLIC_URL: ${API_PUBLIC_URL}
+      WEB_ORIGIN: ${WEB_ORIGIN}
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "${API_PORT}:${API_PORT}"
     volumes:
-      - phr-minio-data:/data
+      - phr-media:/app/media
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    depends_on:
+      - api
+    environment:
+      WEB_PORT: ${WEB_PORT}
+      API_INTERNAL_URL: http://api:${API_PORT}
+    ports:
+      - "${WEB_PORT}:${WEB_PORT}"
 
 volumes:
   phr-postgres-data:
-  phr-minio-data:
+  # Uploaded documents/thumbnails/avatars, mounted into the api container at
+  # /app/media (see MEDIA_ROOT above). Point this at a host bind mount instead
+  # of a named volume if you want the files directly accessible on your
+  # homelab server's filesystem, e.g. replace with `./data/media:/app/media`.
+  phr-media:

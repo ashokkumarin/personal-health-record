@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import type { FamilyDetail, MedicalRecord, RecordType } from "@phr/shared";
-import { recordTypes, uploadRecordFieldsSchema } from "@phr/shared";
+import { recordTypes, recordTypeLabels, uploadRecordFieldsSchema } from "@phr/shared";
 import { familyClient, recordsClient } from "../../../../lib/api";
 import { getToken } from "../../../../lib/auth";
 import Container from "@mui/material/Container";
@@ -21,9 +21,12 @@ import Dialog from "@mui/material/Dialog";
 import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
+import Collapse from "@mui/material/Collapse";
 import AddIcon from "@mui/icons-material/Add";
+import FilterListIcon from "@mui/icons-material/FilterList";
 import { todayDateInputValue } from "../../../../lib/date";
 import RecordGrid from "../../../components/RecordGrid";
+import PageBreadcrumbs from "../../../components/PageBreadcrumbs";
 
 export default function TimelinePage() {
   const { id } = useParams<{ id: string }>();
@@ -40,6 +43,8 @@ export default function TimelinePage() {
   const [dateTo, setDateTo] = useState("");
   const [q, setQ] = useState("");
 
+  const [filtersOpen, setFiltersOpen] = useState(false);
+
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadPatientId, setUploadPatientId] = useState(patientId);
   const [uploadRecordType, setUploadRecordType] = useState<RecordType>("PRESCRIPTION");
@@ -49,6 +54,14 @@ export default function TimelinePage() {
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const selectedPatientName = family?.patients.find((p) => p.id === patientId)?.name;
+
+  const breadcrumbItems = selectedPatientName
+    ? [{ label: "Home", href: "/" }, { label: selectedPatientName }]
+    : [
+        { label: "Settings", href: "/settings" },
+        { label: family?.name ?? "Family", href: `/families/${id}` },
+        { label: "Timeline" },
+      ];
 
   useEffect(() => {
     if (!getToken()) {
@@ -134,13 +147,22 @@ export default function TimelinePage() {
 
   return (
     <Container maxWidth="md" sx={{ mt: 4, mb: 6 }}>
-      <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 2 }}>
+      <PageBreadcrumbs items={breadcrumbItems} />
+      <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 2, justifyContent: "space-between" }}>
         <Typography variant="h4" sx={{ fontWeight: 600 }}>
           {selectedPatientName ? `${selectedPatientName}'s Timeline` : "Timeline"}
         </Typography>
-        <IconButton color="primary" onClick={openUploadDialog}>
-          <AddIcon />
-        </IconButton>
+        <Stack direction="row" spacing={1}>
+          <IconButton
+            color={filtersOpen ? "primary" : "default"}
+            onClick={() => setFiltersOpen((open) => !open)}
+          >
+            <FilterListIcon />
+          </IconButton>
+          <IconButton color="primary" onClick={openUploadDialog}>
+            <AddIcon />
+          </IconButton>
+        </Stack>
       </Stack>
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -148,66 +170,68 @@ export default function TimelinePage() {
         </Alert>
       )}
 
-      <Card variant="outlined" sx={{ mb: 3 }}>
-        <CardContent>
-          <Stack component="form" onSubmit={search} spacing={2}>
-            <Grid container spacing={2}>
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <TextField
-                  select
-                  label="Document type"
-                  value={recordType}
-                  onChange={(e) => setRecordType(e.target.value as RecordType)}
-                  fullWidth
-                  size="small"
-                >
-                  <MenuItem value="">All types</MenuItem>
-                  {recordTypes.map((t) => (
-                    <MenuItem key={t} value={t}>
-                      {t}
-                    </MenuItem>
-                  ))}
-                </TextField>
+      <Collapse in={filtersOpen}>
+        <Card variant="outlined" sx={{ mb: 3 }}>
+          <CardContent>
+            <Stack component="form" onSubmit={search} spacing={2}>
+              <Grid container spacing={2}>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                  <TextField
+                    select
+                    label="Document type"
+                    value={recordType}
+                    onChange={(e) => setRecordType(e.target.value as RecordType)}
+                    fullWidth
+                    size="small"
+                  >
+                    <MenuItem value="">All types</MenuItem>
+                    {recordTypes.map((t) => (
+                      <MenuItem key={t} value={t}>
+                        {recordTypeLabels[t]}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+                <Grid size={{ xs: 6, sm: 3, md: 3 }}>
+                  <TextField
+                    label="From"
+                    type="date"
+                    value={dateFrom}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                    fullWidth
+                    size="small"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                  />
+                </Grid>
+                <Grid size={{ xs: 6, sm: 3, md: 3 }}>
+                  <TextField
+                    label="To"
+                    type="date"
+                    value={dateTo}
+                    onChange={(e) => setDateTo(e.target.value)}
+                    fullWidth
+                    size="small"
+                    slotProps={{ inputLabel: { shrink: true } }}
+                  />
+                </Grid>
+                <Grid size={{ xs: 12, sm: 6, md: 3 }}>
+                  <TextField
+                    label="Search"
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                    placeholder="Keyword"
+                    fullWidth
+                    size="small"
+                  />
+                </Grid>
               </Grid>
-              <Grid size={{ xs: 6, sm: 3, md: 3 }}>
-                <TextField
-                  label="From"
-                  type="date"
-                  value={dateFrom}
-                  onChange={(e) => setDateFrom(e.target.value)}
-                  fullWidth
-                  size="small"
-                  slotProps={{ inputLabel: { shrink: true } }}
-                />
-              </Grid>
-              <Grid size={{ xs: 6, sm: 3, md: 3 }}>
-                <TextField
-                  label="To"
-                  type="date"
-                  value={dateTo}
-                  onChange={(e) => setDateTo(e.target.value)}
-                  fullWidth
-                  size="small"
-                  slotProps={{ inputLabel: { shrink: true } }}
-                />
-              </Grid>
-              <Grid size={{ xs: 12, sm: 6, md: 3 }}>
-                <TextField
-                  label="Search"
-                  value={q}
-                  onChange={(e) => setQ(e.target.value)}
-                  placeholder="Keyword"
-                  fullWidth
-                  size="small"
-                />
-              </Grid>
-            </Grid>
-            <Button type="submit" variant="contained" sx={{ alignSelf: "flex-start" }}>
-              Filter
-            </Button>
-          </Stack>
-        </CardContent>
-      </Card>
+              <Button type="submit" variant="contained" sx={{ alignSelf: "flex-start" }}>
+                Apply filters
+              </Button>
+            </Stack>
+          </CardContent>
+        </Card>
+      </Collapse>
 
       {records && records.length > 0 ? (
         <RecordGrid records={records} onChanged={() => search()} />
@@ -246,7 +270,7 @@ export default function TimelinePage() {
             >
               {recordTypes.map((t) => (
                 <MenuItem key={t} value={t}>
-                  {t}
+                  {recordTypeLabels[t]}
                 </MenuItem>
               ))}
             </TextField>

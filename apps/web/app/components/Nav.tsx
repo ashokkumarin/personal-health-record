@@ -23,17 +23,21 @@ import NotificationsIcon from "@mui/icons-material/Notifications";
 import { getCurrentUser, clearSession, SESSION_CHANGED_EVENT } from "../../lib/auth";
 import { familyClient, APPROVALS_CHANGED_EVENT } from "../../lib/api";
 import Sidebar from "./Sidebar";
+import LogoMark from "./LogoMark";
 
 export default function Nav() {
   const router = useRouter();
   const pathname = usePathname();
   const [userName, setUserName] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingApprovals, setPendingApprovals] = useState(0);
 
   const refreshUser = useCallback(() => {
-    setUserName(getCurrentUser()?.name ?? null);
+    const user = getCurrentUser();
+    setUserName(user?.name ?? null);
+    setAvatarUrl(user?.avatarUrl ?? null);
   }, []);
 
   // Nav lives in the root layout and never remounts on client-side
@@ -83,17 +87,14 @@ export default function Nav() {
 
   return (
     <>
-      <AppBar position="static" elevation={0}>
+      <AppBar position="sticky" elevation={0} sx={{ top: 0 }}>
         <Toolbar sx={{ gap: 1 }}>
           <IconButton color="inherit" onClick={() => setSidebarOpen(true)} sx={{ mr: 1 }}>
             <MenuIcon />
           </IconButton>
-          <Box
-            component="img"
-            src="/logo.svg"
-            alt="PHR logo"
-            sx={{ width: 32, height: 32, mr: 1, borderRadius: "8px" }}
-          />
+          <Box sx={{ display: "flex", alignItems: "center", mr: 1, color: "inherit" }}>
+            <LogoMark size={32} />
+          </Box>
           <Typography
             variant="h6"
             component={Link}
@@ -113,7 +114,7 @@ export default function Nav() {
               </Badge>
             </IconButton>
             <IconButton onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ ml: 1 }}>
-              <Avatar sx={{ width: 32, height: 32, bgcolor: "secondary.main" }}>
+              <Avatar src={avatarUrl ?? undefined} sx={{ width: 32, height: 32, bgcolor: "secondary.main" }}>
                 {userName.charAt(0).toUpperCase()}
               </Avatar>
             </IconButton>

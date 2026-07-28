@@ -27,7 +27,7 @@ This repository uses a TypeScript monorepo with shared contracts across the stac
 - API: Node.js, TypeScript, Fastify, Prisma, PostgreSQL
 - Web app: Next.js, React, Material UI
 - Mobile app: Expo, React Native
-- Storage: MinIO/S3-compatible object storage for uploaded files
+- Storage: uploaded documents/thumbnails/avatars are stored on local disk under a configurable `MEDIA_ROOT` folder (see `.env.example`), served through a signed-URL route on the API — no object storage service required
 
 ### Repository layout
 
@@ -41,9 +41,10 @@ This repository uses a TypeScript monorepo with shared contracts across the stac
 
 ### Prerequisites
 
-- Node.js 20+
-- Docker Desktop (for PostgreSQL and MinIO)
+- Node.js 22+
+- Docker Desktop (for PostgreSQL)
 - npm
+- [poppler-utils](https://poppler.freedesktop.org/) (`pdftoppm`) — used to render PDF page-1 thumbnails. Without it, PDF uploads still work but come back with no thumbnail (best-effort, same as an unsupported file type). Install via `apt install poppler-utils` (Debian/Ubuntu), `brew install poppler` (Mac), or `choco install poppler`/`winget install --id=oschwartz10612.Poppler` (Windows) and ensure `pdftoppm` is on `PATH`.
 
 ### 1. Install dependencies
 
@@ -60,10 +61,12 @@ cp .env.example .env
 ### 3. Start local services
 
 ```bash
-docker compose up -d
+docker compose up -d postgres
 ```
 
-This starts PostgreSQL and MinIO for local development.
+This starts PostgreSQL for local development. Uploaded files are stored directly on disk under the folder configured by `MEDIA_ROOT` in `.env` (default `./data/media`, created automatically) — no additional service required.
+
+> `docker-compose.yml` also defines `api` and `web` services (see [Running the full stack in Docker](#running-the-full-stack-in-docker) below). Starting just `postgres` here avoids port clashes with `npm run dev:api`/`dev:web` on the host.
 
 ### 4. Run database migrations
 
@@ -95,6 +98,39 @@ npm run dev:mobile
 ```
 
 The API defaults to http://localhost:4000 and the web app to http://localhost:3000.
+
+## Running the full stack in Docker
+
+For a homelab or any host without Node.js installed, `docker-compose.yml` also builds and runs the `api` and `web` apps as containers alongside `postgres`.
+
+```bash
+cp .env.example .env   # if you haven't already
+docker compose up -d --build
+```
+
+This builds the API and web images, runs Prisma migrations automatically on API startup, and serves:
+
+- Web app on `http://<host>:${WEB_PORT}` (default 3000)
+- API on `http://<host>:${API_PORT}` (default 4000)
+
+Uploaded files persist in the `phr-media` docker volume (mounted at `/app/media` in the `api` container). To keep them directly on disk instead, replace `phr-media:/app/media` in `docker-compose.yml` with a bind mount, e.g. `./data/media:/app/media`.
+
+### Changing the port
+
+Ports are not hardcoded into the images — they're read from environment variables at container start, so no rebuild is needed. Edit `.env`:
+
+```bash
+WEB_PORT=8080
+API_PORT=8081
+```
+
+Also update `API_PUBLIC_URL` and `WEB_ORIGIN` in `.env` to match the address your browser/homelab network actually uses to reach this host (e.g. `API_PUBLIC_URL=http://192.168.1.50:8081`), then:
+
+```bash
+docker compose up -d
+```
+
+The web app talks to the API through a same-origin `/api` proxy (a Next.js route handler at `apps/web/app/api/[...path]/route.ts`, forwarding to `API_INTERNAL_URL`), so the browser never needs to know the API's host/port directly — only `API_PUBLIC_URL` (used for direct file-download links) needs to match how your browser reaches the server.
 
 ## Testing
 

@@ -17,6 +17,13 @@ export const updateProfileSchema = z.object({
   name: z.string().min(1, "Name is required").optional(),
   email: z.string().email("Enter a valid email address").optional(),
   phone: z.string().optional(),
+  dateOfBirth: z.string().optional(),
+  address: z.string().optional(),
+  themeColor: z
+    .string()
+    .regex(/^#[0-9a-fA-F]{6}$/, "Must be a hex color")
+    .optional(),
+  defaultTimelineView: z.enum(["grid", "list"]).optional(),
 });
 
 export const changePasswordSchema = z.object({
@@ -36,6 +43,10 @@ export interface User {
   createdAt: string;
   phone?: string | null;
   avatarUrl?: string | null;
+  themeColor?: string | null;
+  defaultTimelineView?: "grid" | "list" | null;
+  dateOfBirth?: string | null;
+  address?: string | null;
 }
 
 export interface AuthResponse {

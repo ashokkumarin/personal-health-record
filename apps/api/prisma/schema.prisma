@@ -18,6 +18,10 @@ model User {
   passwordHash String
   phone        String?
   avatarPath   String?
+  themeColor   String?
+  defaultTimelineView String?
+  dateOfBirth  DateTime?
+  address      String?
   createdAt    DateTime @default(now())
 
   ownedFamilies             Family[]           @relation("FamilyOwner")

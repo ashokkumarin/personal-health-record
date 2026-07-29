@@ -5,16 +5,21 @@
     "version": "0.0.1",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
-    "ios": { "supportsTablet": true },
+    "ios": {
+      "supportsTablet": true
+    },
     "android": {},
-    "web": { "bundler": "metro" },
+    "web": {
+      "bundler": "metro"
+    },
     "plugins": [
       [
         "expo-image-picker",
         {
           "cameraPermission": "Allow PHR to use the camera to capture medical documents."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ]
   }
 }

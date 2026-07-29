@@ -13,7 +13,16 @@ COPY packages/shared packages/shared
 COPY apps/web apps/web
 
 RUN npm run build --workspace packages/shared
-RUN npm run build --workspace apps/web
+# Next's build-time lockfile-patch check makes a registry HTTP call that this
+# sandboxed build environment can't reach, crashing an otherwise-successful
+# build; NEXT_IGNORE_INCORRECT_LOCKFILE skips that legacy check entirely (it
+# only ever mattered for a bug in npm 8.3–8.4, long since irrelevant here).
+RUN NEXT_IGNORE_INCORRECT_LOCKFILE=1 npm run build --workspace apps/web
+# npm's hoisting outcome for apps/web/node_modules (nested vs. fully hoisted
+# to root) depends on the current dependency graph and can change between
+# installs — e.g. `next` itself currently nests here rather than at root.
+# Ensure the directory exists either way so the COPY below never fails.
+RUN mkdir -p apps/web/node_modules
 
 FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
@@ -24,6 +33,7 @@ COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/packages/shared/package.json ./packages/shared/package.json
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /app/apps/web/node_modules ./apps/web/node_modules
 COPY --from=builder /app/apps/web/package.json ./apps/web/package.json
 COPY --from=builder /app/apps/web/next.config.mjs ./apps/web/next.config.mjs
 COPY --from=builder /app/apps/web/public ./apps/web/public

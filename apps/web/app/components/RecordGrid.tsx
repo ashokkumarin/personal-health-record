@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { MedicalRecord, RecordType } from "@phr/shared";
 import { recordTypes, recordTypeLabels, updateRecordFieldsSchema } from "@phr/shared";
 import { recordsClient } from "../../lib/api";
@@ -8,6 +8,11 @@ import { todayDateInputValue } from "../../lib/date";
 import ImageList from "@mui/material/ImageList";
 import ImageListItem from "@mui/material/ImageListItem";
 import ImageListItemBar from "@mui/material/ImageListItemBar";
+import Checkbox from "@mui/material/Checkbox";
+import List from "@mui/material/List";
+import ListItemButton from "@mui/material/ListItemButton";
+import ListItemText from "@mui/material/ListItemText";
+import Card from "@mui/material/Card";
 import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Divider from "@mui/material/Divider";
@@ -24,14 +29,17 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogActions from "@mui/material/DialogActions";
+import CircularProgress from "@mui/material/CircularProgress";
 import MoreVertIcon from "@mui/icons-material/MoreVert";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
+import DownloadIcon from "@mui/icons-material/Download";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import ImageIcon from "@mui/icons-material/Image";
 
 interface RecordGridProps {
   records: MedicalRecord[];
+  view?: "grid" | "list";
   onChanged: () => void;
 }
 
@@ -39,7 +47,35 @@ function monthYearLabel(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString("en-US", { month: "long", year: "numeric" });
 }
 
-export default function RecordGrid({ records, onChanged }: RecordGridProps) {
+function fileExtension(fileType: string): string {
+  if (fileType === "application/pdf") return "pdf";
+  if (fileType === "image/png") return "png";
+  return "jpg";
+}
+
+function downloadFileName(record: MedicalRecord): string {
+  return `${record.title}.${fileExtension(record.fileType)}`;
+}
+
+function PreviewBody({ record }: { record: MedicalRecord }) {
+  if (!record.downloadUrl) return null;
+  return record.fileType === "application/pdf" ? (
+    <iframe
+      src={record.downloadUrl}
+      title={record.title}
+      style={{ width: "100%", height: "70vh", border: "none" }}
+    />
+  ) : (
+    <Box
+      component="img"
+      src={record.downloadUrl}
+      alt={record.title}
+      sx={{ maxWidth: "100%", display: "block", mx: "auto" }}
+    />
+  );
+}
+
+export default function RecordGrid({ records, view = "grid", onChanged }: RecordGridProps) {
   const [menuAnchor, setMenuAnchor] = useState<HTMLElement | null>(null);
   const [menuRecordId, setMenuRecordId] = useState<string | null>(null);
 
@@ -56,7 +92,60 @@ export default function RecordGrid({ records, onChanged }: RecordGridProps) {
   const [deleteTarget, setDeleteTarget] = useState<MedicalRecord | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const [selectionMode, setSelectionMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDownloading, setBulkDownloading] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState(0);
+
   const menuRecord = records.find((r) => r.id === menuRecordId) ?? null;
+
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function cancelSelection() {
+    setSelectionMode(false);
+    setSelectedIds(new Set());
+  }
+
+  async function downloadBlob(url: string, filename: string) {
+    const res = await fetch(url);
+    const blob = await res.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = objectUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(objectUrl);
+  }
+
+  async function handleBulkDownload() {
+    const selected = records.filter((r) => selectedIds.has(r.id));
+    if (selected.length === 0) return;
+    setError(null);
+    setBulkDownloading(true);
+    setBulkProgress(0);
+    let failed = 0;
+    for (let i = 0; i < selected.length; i++) {
+      try {
+        const full = await recordsClient().getRecord(selected[i].id);
+        if (full.downloadUrl) await downloadBlob(full.downloadUrl, downloadFileName(full));
+      } catch {
+        failed++;
+      }
+      setBulkProgress(i + 1);
+    }
+    setBulkDownloading(false);
+    if (failed > 0) setError(`Could not download ${failed} of ${selected.length} document(s).`);
+    cancelSelection();
+  }
 
   const groups = useMemo(() => {
     const byMonth = new Map<string, MedicalRecord[]>();
@@ -84,6 +173,16 @@ export default function RecordGrid({ records, onChanged }: RecordGridProps) {
       setPreviewLoading(false);
     }
   }
+
+  // List view shows the preview inline rather than in a dialog, so default to
+  // the first document instead of leaving the pane empty.
+  useEffect(() => {
+    if (view !== "list") return;
+    if (previewRecord && records.some((r) => r.id === previewRecord.id)) return;
+    if (records.length > 0) openPreview(records[0]);
+    else setPreviewRecord(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, records]);
 
   function openEdit(record: MedicalRecord) {
     setMenuAnchor(null);
@@ -151,68 +250,208 @@ export default function RecordGrid({ records, onChanged }: RecordGridProps) {
         </Alert>
       )}
 
-      {groups.map(([label, groupRecords]) => (
-        <Box key={label} sx={{ mb: 3 }}>
-          <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", mb: 1 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
-              {label}
+      <Stack direction="row" sx={{ justifyContent: "flex-end", mb: 1.5 }}>
+        {selectionMode ? (
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+            <Typography variant="body2" color="text.secondary">
+              {selectedIds.size} selected
             </Typography>
-            <Divider sx={{ flex: 1 }} />
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<DownloadIcon />}
+              disabled={selectedIds.size === 0 || bulkDownloading}
+              onClick={handleBulkDownload}
+            >
+              {bulkDownloading ? `Downloading ${bulkProgress}/${selectedIds.size}…` : "Download"}
+            </Button>
+            <Button size="small" onClick={cancelSelection}>
+              Cancel
+            </Button>
           </Stack>
-          <ImageList
-            cols={4}
-            gap={8}
-            sx={{ gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))!important" }}
+        ) : (
+          <Button size="small" onClick={() => setSelectionMode(true)}>
+            Select
+          </Button>
+        )}
+      </Stack>
+
+      {view === "list" ? (
+        <Stack direction={{ xs: "column", md: "row" }} spacing={3} sx={{ alignItems: "flex-start" }}>
+          <Card
+            variant="outlined"
+            sx={{ width: { xs: "100%", md: 320 }, flexShrink: 0, maxHeight: "75vh", overflowY: "auto" }}
           >
-            {groupRecords.map((record) => (
-              <ImageListItem key={record.id} sx={{ cursor: "pointer" }}>
-                {record.thumbnailUrl ? (
-                  <img
-                    src={record.thumbnailUrl}
-                    alt={record.title}
-                    loading="lazy"
-                    onClick={() => openPreview(record)}
-                    style={{ aspectRatio: "1 / 1", objectFit: "cover" }}
-                  />
-                ) : (
-                  <Box
-                    onClick={() => openPreview(record)}
-                    sx={{
-                      aspectRatio: "1 / 1",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      bgcolor: "action.hover",
-                    }}
+            {groups.map(([label, groupRecords]) => (
+              <Box key={label}>
+                <Typography
+                  variant="caption"
+                  sx={{ display: "block", px: 2, pt: 1.5, pb: 0.5, fontWeight: 600, color: "text.secondary" }}
+                >
+                  {label}
+                </Typography>
+                <List disablePadding>
+                  {groupRecords.map((record) => (
+                    <ListItemButton
+                      key={record.id}
+                      selected={previewRecord?.id === record.id}
+                      onClick={() => (selectionMode ? toggleSelect(record.id) : openPreview(record))}
+                    >
+                      {selectionMode && (
+                        <Checkbox
+                          edge="start"
+                          checked={selectedIds.has(record.id)}
+                          onClick={(e) => e.stopPropagation()}
+                          onChange={() => toggleSelect(record.id)}
+                          sx={{ mr: 1 }}
+                        />
+                      )}
+                      <ListItemText
+                        primary={record.title}
+                        secondary={(record.capturedAt ?? record.uploadedAt).slice(0, 10)}
+                      />
+                      <IconButton
+                        edge="end"
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMenuAnchor(e.currentTarget);
+                          setMenuRecordId(record.id);
+                        }}
+                      >
+                        <MoreVertIcon fontSize="small" />
+                      </IconButton>
+                    </ListItemButton>
+                  ))}
+                </List>
+              </Box>
+            ))}
+          </Card>
+
+          <Card variant="outlined" sx={{ flex: 1, width: "100%", minWidth: 0, minHeight: "50vh" }}>
+            {previewLoading ? (
+              <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "50vh" }}>
+                <CircularProgress />
+              </Box>
+            ) : previewRecord ? (
+              <>
+                <Stack
+                  direction="row"
+                  spacing={1}
+                  sx={{ alignItems: "center", justifyContent: "space-between", p: 2 }}
+                >
+                  <Typography variant="h6" sx={{ wordBreak: "break-word" }}>
+                    {previewRecord.title}
+                  </Typography>
+                  <Button
+                    size="small"
+                    startIcon={<DownloadIcon />}
+                    component="a"
+                    href={previewRecord.downloadUrl}
+                    download={downloadFileName(previewRecord)}
+                    target="_blank"
+                    rel="noopener"
                   >
-                    {record.fileType === "application/pdf" ? (
-                      <PictureAsPdfIcon sx={{ fontSize: 48, color: "text.secondary" }} />
-                    ) : (
-                      <ImageIcon sx={{ fontSize: 48, color: "text.secondary" }} />
-                    )}
-                  </Box>
-                )}
-                <ImageListItemBar
-                  title={record.title}
-                  subtitle={(record.capturedAt ?? record.uploadedAt).slice(0, 10)}
-                  actionIcon={
-                    <IconButton
-                      sx={{ color: "white" }}
+                    Download
+                  </Button>
+                </Stack>
+                <Divider />
+                <Box sx={{ p: 2 }}>
+                  <PreviewBody record={previewRecord} />
+                </Box>
+              </>
+            ) : (
+              <Box sx={{ display: "flex", justifyContent: "center", alignItems: "center", height: "50vh" }}>
+                <Typography color="text.secondary">Select a document to preview.</Typography>
+              </Box>
+            )}
+          </Card>
+        </Stack>
+      ) : (
+        groups.map(([label, groupRecords]) => (
+          <Box key={label} sx={{ mb: 3 }}>
+            <Stack direction="row" spacing={1.5} sx={{ alignItems: "center", mb: 1 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+                {label}
+              </Typography>
+              <Divider sx={{ flex: 1 }} />
+            </Stack>
+            <ImageList
+              cols={4}
+              gap={8}
+              sx={{ gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))!important" }}
+            >
+              {groupRecords.map((record) => (
+                <ImageListItem key={record.id} sx={{ cursor: "pointer", position: "relative" }}>
+                  {selectionMode && (
+                    <Checkbox
+                      checked={selectedIds.has(record.id)}
                       onClick={(e) => {
                         e.stopPropagation();
-                        setMenuAnchor(e.currentTarget);
-                        setMenuRecordId(record.id);
+                        toggleSelect(record.id);
+                      }}
+                      sx={{
+                        position: "absolute",
+                        top: 4,
+                        left: 4,
+                        zIndex: 1,
+                        bgcolor: "rgba(255,255,255,0.8)",
+                        borderRadius: "50%",
+                        p: 0.5,
+                        "&:hover": { bgcolor: "rgba(255,255,255,0.9)" },
+                      }}
+                    />
+                  )}
+                  {record.thumbnailUrl ? (
+                    <img
+                      src={record.thumbnailUrl}
+                      alt={record.title}
+                      loading="lazy"
+                      onClick={() => (selectionMode ? toggleSelect(record.id) : openPreview(record))}
+                      style={{ aspectRatio: "1 / 1", objectFit: "cover" }}
+                    />
+                  ) : (
+                    <Box
+                      onClick={() => (selectionMode ? toggleSelect(record.id) : openPreview(record))}
+                      sx={{
+                        aspectRatio: "1 / 1",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        bgcolor: "action.hover",
                       }}
                     >
-                      <MoreVertIcon />
-                    </IconButton>
-                  }
-                />
-              </ImageListItem>
-            ))}
-          </ImageList>
-        </Box>
-      ))}
+                      {record.fileType === "application/pdf" ? (
+                        <PictureAsPdfIcon sx={{ fontSize: 48, color: "text.secondary" }} />
+                      ) : (
+                        <ImageIcon sx={{ fontSize: 48, color: "text.secondary" }} />
+                      )}
+                    </Box>
+                  )}
+                  <ImageListItemBar
+                    title={record.title}
+                    subtitle={(record.capturedAt ?? record.uploadedAt).slice(0, 10)}
+                    actionIcon={
+                      selectionMode ? undefined : (
+                        <IconButton
+                          sx={{ color: "white" }}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setMenuAnchor(e.currentTarget);
+                            setMenuRecordId(record.id);
+                          }}
+                        >
+                          <MoreVertIcon />
+                        </IconButton>
+                      )
+                    }
+                  />
+                </ImageListItem>
+              ))}
+            </ImageList>
+          </Box>
+        ))
+      )}
 
       <Menu anchorEl={menuAnchor} open={Boolean(menuAnchor)} onClose={() => setMenuAnchor(null)}>
         <MenuItem onClick={() => menuRecord && openEdit(menuRecord)}>
@@ -234,34 +473,32 @@ export default function RecordGrid({ records, onChanged }: RecordGridProps) {
         </MenuItem>
       </Menu>
 
-      <Dialog
-        open={Boolean(previewRecord) || previewLoading}
-        onClose={() => setPreviewRecord(null)}
-        maxWidth="md"
-        fullWidth
-      >
-        <DialogTitle>{previewRecord?.title ?? "Loading..."}</DialogTitle>
-        <DialogContent>
-          {previewRecord?.downloadUrl &&
-            (previewRecord.fileType === "application/pdf" ? (
-              <iframe
-                src={previewRecord.downloadUrl}
-                title={previewRecord.title}
-                style={{ width: "100%", height: "70vh", border: "none" }}
-              />
-            ) : (
-              <Box
-                component="img"
-                src={previewRecord.downloadUrl}
-                alt={previewRecord.title}
-                sx={{ maxWidth: "100%", display: "block", mx: "auto" }}
-              />
-            ))}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setPreviewRecord(null)}>Close</Button>
-        </DialogActions>
-      </Dialog>
+      {view === "grid" && (
+        <Dialog
+          open={Boolean(previewRecord) || previewLoading}
+          onClose={() => setPreviewRecord(null)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle>{previewRecord?.title ?? "Loading..."}</DialogTitle>
+          <DialogContent>{previewRecord && <PreviewBody record={previewRecord} />}</DialogContent>
+          <DialogActions>
+            {previewRecord?.downloadUrl && (
+              <Button
+                startIcon={<DownloadIcon />}
+                component="a"
+                href={previewRecord.downloadUrl}
+                download={downloadFileName(previewRecord)}
+                target="_blank"
+                rel="noopener"
+              >
+                Download
+              </Button>
+            )}
+            <Button onClick={() => setPreviewRecord(null)}>Close</Button>
+          </DialogActions>
+        </Dialog>
+      )}
 
       <Dialog open={Boolean(editRecord)} onClose={() => setEditRecord(null)} maxWidth="xs" fullWidth>
         <DialogTitle>Edit document</DialogTitle>

@@ -140,7 +140,11 @@ npm run test:api
 
 ## Documentation
 
-The implementation and product requirements are documented in:
+**[docs/README.md](docs/README.md)** is the full technical wiki — C1–C4
+architecture diagrams, the complete API reference, the data model, and a guide
+per app/service.
+
+The original product requirements and delivery history are documented in:
 
 - [docs/requirements-and-project-plan.md](docs/requirements-and-project-plan.md)
 - [docs/specs/mvp-spec.md](docs/specs/mvp-spec.md)

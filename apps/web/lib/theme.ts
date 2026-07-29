@@ -15,16 +15,10 @@ export const BANNER_COLOR_PRESETS: { label: string; color: string }[] = [
   { label: "Blue Grey", color: "#37474f" },
 ];
 
-function readableTextColor(hex: string): string {
-  const normalized = hex.replace("#", "");
-  if (normalized.length !== 6) return "#ffffff";
-  const r = parseInt(normalized.substring(0, 2), 16);
-  const g = parseInt(normalized.substring(2, 4), 16);
-  const b = parseInt(normalized.substring(4, 6), 16);
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-  return luminance > 0.6 ? "#1a1a1a" : "#ffffff";
-}
-
+// Local cache only, so the UI has something to paint before the session/user
+// loads (or when logged out, e.g. on the login page). The source of truth is
+// the logged-in user's themeColor field on the server — see AppearanceSection
+// and ThemeRegistry, which sync this cache from/to that field.
 export function getStoredBannerColor(): string {
   if (typeof window === "undefined") return DEFAULT_BANNER_COLOR;
   return window.localStorage.getItem(THEME_STORAGE_KEY) ?? DEFAULT_BANNER_COLOR;
@@ -39,13 +33,10 @@ export function createAppTheme(bannerColor: string): Theme {
   return createTheme({
     palette: {
       mode: "light",
+      // Drives every default-colored control (buttons, icons, chips, the
+      // AppBar) app-wide, not just the top banner — MUI derives contrastText
+      // for all of them automatically from this one value.
       primary: {
-        main: "#00695c",
-      },
-      // Follows the customizable banner color so the initial-letter avatar
-      // fallback (the only real use of palette.secondary.main) always
-      // matches the current theme rather than staying a fixed color.
-      secondary: {
         main: bannerColor,
       },
       background: {
@@ -60,14 +51,6 @@ export function createAppTheme(bannerColor: string): Theme {
       fontFamily: "var(--font-roboto), Roboto, Helvetica, Arial, sans-serif",
     },
     components: {
-      MuiAppBar: {
-        styleOverrides: {
-          root: {
-            backgroundColor: bannerColor,
-            color: readableTextColor(bannerColor),
-          },
-        },
-      },
       MuiCard: {
         styleOverrides: {
           root: {

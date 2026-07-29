@@ -15,6 +15,10 @@ async function proxy(request: NextRequest, { params }: { params: { path: string[
   const headers = new Headers(request.headers);
   headers.delete("host");
   headers.delete("content-length");
+  // undici's fetch doesn't implement the "Expect: 100-continue" handshake browsers
+  // and curl send for multipart/form-data uploads — leaving it in makes every file
+  // upload fail with "NotSupportedError: expect header not supported".
+  headers.delete("expect");
 
   const hasBody = !["GET", "HEAD"].includes(request.method);
 

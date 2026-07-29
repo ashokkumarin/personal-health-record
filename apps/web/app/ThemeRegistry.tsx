@@ -11,19 +11,30 @@ import {
   DEFAULT_BANNER_COLOR,
   THEME_CHANGED_EVENT,
 } from "../lib/theme";
+import { getCurrentUser, SESSION_CHANGED_EVENT } from "../lib/auth";
 import Nav from "./components/Nav";
 import Footer from "./components/Footer";
+
+// The logged-in user's themeColor (persisted server-side, see AppearanceSection)
+// is the source of truth so the color follows the account across devices.
+// The localStorage cache is only a fallback for the logged-out state (e.g. the
+// login page, which has no user yet).
+function resolveBannerColor(): string {
+  return getCurrentUser()?.themeColor ?? getStoredBannerColor();
+}
 
 export default function ThemeRegistry({ children }: { children: React.ReactNode }) {
   const [bannerColor, setBannerColor] = useState(DEFAULT_BANNER_COLOR);
 
   useEffect(() => {
-    setBannerColor(getStoredBannerColor());
-    const onChange = () => setBannerColor(getStoredBannerColor());
+    setBannerColor(resolveBannerColor());
+    const onChange = () => setBannerColor(resolveBannerColor());
     window.addEventListener(THEME_CHANGED_EVENT, onChange);
+    window.addEventListener(SESSION_CHANGED_EVENT, onChange);
     window.addEventListener("storage", onChange);
     return () => {
       window.removeEventListener(THEME_CHANGED_EVENT, onChange);
+      window.removeEventListener(SESSION_CHANGED_EVENT, onChange);
       window.removeEventListener("storage", onChange);
     };
   }, []);

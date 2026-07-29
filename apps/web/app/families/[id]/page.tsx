@@ -8,6 +8,7 @@ import { addMemberSchema, recordTypes, recordTypeLabels, uploadRecordFieldsSchem
 import { familyClient, recordsClient } from "../../../lib/api";
 import { getToken, getCurrentUser } from "../../../lib/auth";
 import Container from "@mui/material/Container";
+import Box from "@mui/material/Box";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
 import CardContent from "@mui/material/CardContent";
@@ -30,12 +31,28 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogContentText from "@mui/material/DialogContentText";
 import DialogActions from "@mui/material/DialogActions";
+import Tabs from "@mui/material/Tabs";
+import Tab from "@mui/material/Tab";
+import useMediaQuery from "@mui/material/useMediaQuery";
+import { useTheme } from "@mui/material/styles";
 import EditIcon from "@mui/icons-material/Edit";
+import DeleteIcon from "@mui/icons-material/Delete";
+import GroupsIcon from "@mui/icons-material/Groups";
+import UploadFileIcon from "@mui/icons-material/UploadFile";
+import PersonAddIcon from "@mui/icons-material/PersonAdd";
 import { ApiRequestError } from "@phr/shared";
 import { todayDateInputValue } from "../../../lib/date";
 import PageBreadcrumbs from "../../components/PageBreadcrumbs";
 
 type Mode = AddMemberInput["mode"];
+
+const SECTIONS = [
+  { id: "members", label: "Members", icon: <GroupsIcon fontSize="small" /> },
+  { id: "add-member", label: "Add Member", icon: <PersonAddIcon fontSize="small" /> },
+  { id: "documents", label: "Documents", icon: <UploadFileIcon fontSize="small" /> },
+] as const;
+
+type SectionId = (typeof SECTIONS)[number]["id"];
 
 export default function FamilyDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -58,6 +75,10 @@ export default function FamilyDetailPage() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [familyNameInput, setFamilyNameInput] = useState("");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [section, setSection] = useState<SectionId>("members");
+
+  const theme = useTheme();
+  const isWideScreen = useMediaQuery(theme.breakpoints.up("sm"));
 
   const currentUser = getCurrentUser();
 
@@ -220,8 +241,13 @@ export default function FamilyDetailPage() {
   const ownMembership = family.memberships.find((m) => m.userId === currentUser?.id);
   const canManage = isOwner || ownMembership?.role === "ADMIN";
 
+  // Only owners/admins can add members (enforced server-side too) — hide the tab
+  // for everyone else rather than let them hit a confusing 403 on submit.
+  const visibleSections = SECTIONS.filter((s) => canManage || s.id !== "add-member");
+  const activeSection = visibleSections.some((s) => s.id === section) ? section : "members";
+
   return (
-    <Container maxWidth="sm" sx={{ mt: 4, mb: 6 }}>
+    <Container maxWidth="md" sx={{ mt: 4, mb: 6 }}>
       <PageBreadcrumbs items={[{ label: "Settings", href: "/settings" }, { label: family.name }]} />
       {isEditingName ? (
         <Stack component="form" onSubmit={handleRename} direction="row" spacing={1} sx={{ mb: 1 }}>
@@ -240,7 +266,7 @@ export default function FamilyDetailPage() {
           </Button>
         </Stack>
       ) : (
-        <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 1 }}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 2 }}>
           <Typography variant="h4" sx={{ fontWeight: 600 }}>
             {family.name}
           </Typography>
@@ -255,17 +281,18 @@ export default function FamilyDetailPage() {
               <EditIcon fontSize="small" />
             </IconButton>
           )}
+          <Box sx={{ flexGrow: 1 }} />
+          {canManage && (
+            <IconButton
+              color="error"
+              size="small"
+              title="Delete family"
+              onClick={() => setDeleteDialogOpen(true)}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          )}
         </Stack>
-      )}
-      {canManage && (
-        <Button
-          color="error"
-          size="small"
-          onClick={() => setDeleteDialogOpen(true)}
-          sx={{ mb: 2 }}
-        >
-          Delete family
-        </Button>
       )}
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
@@ -290,200 +317,244 @@ export default function FamilyDetailPage() {
         </DialogActions>
       </Dialog>
 
-      <Card variant="outlined" sx={{ mb: 3 }}>
-        <CardHeader title="Members" titleTypographyProps={{ variant: "h6" }} />
-        <List disablePadding>
-          {family.memberships.map((m) => (
-            <ListItem
-              key={m.id}
-              divider
-              secondaryAction={
-                canManage &&
-                m.role !== "OWNER" && (
-                  <Stack direction="row" spacing={1}>
-                    {isOwner && m.role !== "ADMIN" && (
-                      <Button size="small" onClick={() => handlePromote(m.userId)}>
-                        Promote to admin
-                      </Button>
-                    )}
-                    <Button size="small" color="error" onClick={() => handleRemoveMember(m.userId)}>
-                      Remove
-                    </Button>
-                  </Stack>
-                )
-              }
-            >
-              <ListItemText
-                primary={`${m.user.name} (${m.user.email})`}
-                secondary={
-                  <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
-                    <Chip label={m.role} size="small" color="primary" variant="outlined" />
-                    <Chip
-                      label={m.status}
-                      size="small"
-                      color={m.status === "ACTIVE" ? "success" : "warning"}
-                      variant="outlined"
-                    />
-                  </Stack>
-                }
-              />
-            </ListItem>
-          ))}
-        </List>
-      </Card>
-
-      <Card variant="outlined" sx={{ mb: 3 }}>
-        <CardHeader title="Patient profiles" titleTypographyProps={{ variant: "h6" }} />
-        <List disablePadding>
-          {family.patients.map((p) => (
-            <ListItem key={p.id} divider>
-              <ListItemText
-                primary={p.name}
-                secondary={p.linkedUserId ? "Linked account" : "No account — managed by family"}
-              />
-              {currentUser?.id === p.linkedUserId && (
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={p.visibleToFamily}
-                      onChange={(e) => handleToggleVisibility(p.id, e.target.checked)}
-                    />
-                  }
-                  label="Share with family"
-                  labelPlacement="start"
-                />
-              )}
-            </ListItem>
-          ))}
-        </List>
-      </Card>
-
       <Button component={Link} href={`/families/${family.id}/timeline`} sx={{ mb: 3 }}>
-        View timeline →
+        View Health Record →
       </Button>
 
-      <Card variant="outlined" sx={{ mb: 3 }}>
-        <CardHeader title="Upload a document" titleTypographyProps={{ variant: "h6" }} />
-        <CardContent>
-          <Stack component="form" onSubmit={handleUpload} spacing={2.5}>
-            <TextField
-              select
-              label="Patient"
-              value={uploadPatientId}
-              onChange={(e) => setUploadPatientId(e.target.value)}
-              fullWidth
-            >
-              <MenuItem value="">Select a patient</MenuItem>
-              {family.patients.map((p) => (
-                <MenuItem key={p.id} value={p.id}>
-                  {p.name}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              select
-              label="Document type"
-              value={uploadRecordType}
-              onChange={(e) => setUploadRecordType(e.target.value as RecordType)}
-              fullWidth
-            >
-              {recordTypes.map((t) => (
-                <MenuItem key={t} value={t}>
-                  {recordTypeLabels[t]}
-                </MenuItem>
-              ))}
-            </TextField>
-            <TextField
-              label="Title"
-              value={uploadTitle}
-              onChange={(e) => setUploadTitle(e.target.value)}
-              fullWidth
-            />
-            <TextField
-              label="Document date"
-              type="date"
-              value={uploadCapturedAt}
-              onChange={(e) => setUploadCapturedAt(e.target.value)}
-              fullWidth
-              slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: todayDateInputValue() } }}
-            />
-            <Button variant="outlined" component="label">
-              {uploadFile ? uploadFile.name : "Choose file (JPEG, PNG, or PDF)"}
-              <input
-                type="file"
-                hidden
-                accept="image/jpeg,image/png,application/pdf"
-                onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
-              />
-            </Button>
-            <Button type="submit" variant="contained">
-              Upload
-            </Button>
-          </Stack>
-        </CardContent>
-      </Card>
+      <Stack direction={{ xs: "column", sm: "row" }} spacing={3} sx={{ alignItems: "flex-start" }}>
+        <Card
+          variant="outlined"
+          sx={{
+            width: { xs: "100%", sm: 220 },
+            flexShrink: 0,
+            position: { sm: "sticky" },
+            top: { sm: 88 },
+          }}
+        >
+          <Tabs
+            orientation={isWideScreen ? "vertical" : "horizontal"}
+            variant={isWideScreen ? "standard" : "scrollable"}
+            scrollButtons={isWideScreen ? false : "auto"}
+            value={visibleSections.findIndex((s) => s.id === activeSection)}
+            onChange={(_e, next) => setSection(visibleSections[next].id)}
+            sx={{
+              "& .MuiTab-root": {
+                alignItems: { sm: "flex-start" },
+                justifyContent: { sm: "flex-start" },
+                textAlign: "left",
+                minHeight: 48,
+              },
+            }}
+          >
+            {visibleSections.map((s) => (
+              <Tab key={s.id} icon={s.icon} iconPosition="start" label={s.label} />
+            ))}
+          </Tabs>
+        </Card>
 
-      <Card variant="outlined">
-        <CardHeader title="Add a family member" titleTypographyProps={{ variant: "h6" }} />
-        <CardContent>
-          <Stack component="form" onSubmit={handleAddMember} spacing={2.5}>
-            <TextField
-              select
-              label="Mode"
-              value={mode}
-              onChange={(e) => setMode(e.target.value as Mode)}
-              fullWidth
-            >
-              <MenuItem value="no_account">No account (I&apos;ll manage their records)</MenuItem>
-              <MenuItem value="new_account">Create a new account for them</MenuItem>
-              <MenuItem value="link_existing">
-                Link an existing account (needs their approval)
-              </MenuItem>
-            </TextField>
-            <TextField label="Name" value={name} onChange={(e) => setName(e.target.value)} fullWidth />
-            <TextField
-              label="Relation"
-              value={relation}
-              onChange={(e) => setRelation(e.target.value)}
-              fullWidth
-            />
-            {mode === "new_account" && (
-              <>
-                <Divider />
-                <TextField
-                  label="Email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  fullWidth
-                />
-                <TextField
-                  label="Password"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  fullWidth
-                />
-              </>
-            )}
-            {mode === "link_existing" && (
-              <>
-                <Divider />
-                <TextField
-                  label="Existing user's email"
-                  type="email"
-                  value={existingUserEmail}
-                  onChange={(e) => setExistingUserEmail(e.target.value)}
-                  fullWidth
-                />
-              </>
-            )}
-            <Button type="submit" variant="contained">
-              Add member
-            </Button>
-          </Stack>
-        </CardContent>
-      </Card>
+        <Stack sx={{ flex: 1, width: "100%", minWidth: 0 }}>
+          {activeSection === "members" && (
+            <Card variant="outlined">
+              <CardHeader title="Members" titleTypographyProps={{ variant: "h6" }} />
+              <List disablePadding>
+                {family.memberships.map((m) => {
+                  const ownPatient =
+                    currentUser?.id === m.userId
+                      ? family.patients.find((p) => p.linkedUserId === m.userId)
+                      : undefined;
+                  return (
+                    <ListItem
+                      key={m.id}
+                      divider
+                      secondaryAction={
+                        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+                          {ownPatient && (
+                            <FormControlLabel
+                              control={
+                                <Switch
+                                  checked={ownPatient.visibleToFamily}
+                                  onChange={(e) =>
+                                    handleToggleVisibility(ownPatient.id, e.target.checked)
+                                  }
+                                />
+                              }
+                              label="Share with family"
+                              labelPlacement="start"
+                            />
+                          )}
+                          {canManage && m.role !== "OWNER" && (
+                            <>
+                              {isOwner && m.role !== "ADMIN" && (
+                                <Button size="small" onClick={() => handlePromote(m.userId)}>
+                                  Promote to admin
+                                </Button>
+                              )}
+                              <Button
+                                size="small"
+                                color="error"
+                                onClick={() => handleRemoveMember(m.userId)}
+                              >
+                                Remove
+                              </Button>
+                            </>
+                          )}
+                        </Stack>
+                      }
+                    >
+                      <ListItemText
+                        primary={`${m.user.name} (${m.user.email})`}
+                        secondary={
+                          <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
+                            <Chip label={m.role} size="small" color="primary" variant="outlined" />
+                            <Chip
+                              label={m.status}
+                              size="small"
+                              color={m.status === "ACTIVE" ? "success" : "warning"}
+                              variant="outlined"
+                            />
+                          </Stack>
+                        }
+                      />
+                    </ListItem>
+                  );
+                })}
+              </List>
+            </Card>
+          )}
+
+          {activeSection === "add-member" && (
+            <Card variant="outlined">
+              <CardHeader title="Add a family member" titleTypographyProps={{ variant: "h6" }} />
+              <CardContent>
+                <Stack component="form" onSubmit={handleAddMember} spacing={2.5}>
+                  <TextField
+                    select
+                    label="Mode"
+                    value={mode}
+                    onChange={(e) => setMode(e.target.value as Mode)}
+                    fullWidth
+                  >
+                    <MenuItem value="no_account">No account (I&apos;ll manage their records)</MenuItem>
+                    <MenuItem value="new_account">Create a new account for them</MenuItem>
+                    <MenuItem value="link_existing">
+                      Link an existing account (needs their approval)
+                    </MenuItem>
+                  </TextField>
+                  <TextField
+                    label="Name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Relation"
+                    value={relation}
+                    onChange={(e) => setRelation(e.target.value)}
+                    fullWidth
+                  />
+                  {mode === "new_account" && (
+                    <>
+                      <Divider />
+                      <TextField
+                        label="Email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        fullWidth
+                      />
+                      <TextField
+                        label="Password"
+                        type="password"
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        fullWidth
+                      />
+                    </>
+                  )}
+                  {mode === "link_existing" && (
+                    <>
+                      <Divider />
+                      <TextField
+                        label="Existing user's email"
+                        type="email"
+                        value={existingUserEmail}
+                        onChange={(e) => setExistingUserEmail(e.target.value)}
+                        fullWidth
+                      />
+                    </>
+                  )}
+                  <Button type="submit" variant="contained">
+                    Add member
+                  </Button>
+                </Stack>
+              </CardContent>
+            </Card>
+          )}
+
+          {activeSection === "documents" && (
+            <Card variant="outlined">
+              <CardHeader title="Upload a document" titleTypographyProps={{ variant: "h6" }} />
+              <CardContent>
+                <Stack component="form" onSubmit={handleUpload} spacing={2.5}>
+                  <TextField
+                    select
+                    label="Patient"
+                    value={uploadPatientId}
+                    onChange={(e) => setUploadPatientId(e.target.value)}
+                    fullWidth
+                  >
+                    <MenuItem value="">Select a patient</MenuItem>
+                    {family.patients.map((p) => (
+                      <MenuItem key={p.id} value={p.id}>
+                        {p.name}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  <TextField
+                    select
+                    label="Document type"
+                    value={uploadRecordType}
+                    onChange={(e) => setUploadRecordType(e.target.value as RecordType)}
+                    fullWidth
+                  >
+                    {recordTypes.map((t) => (
+                      <MenuItem key={t} value={t}>
+                        {recordTypeLabels[t]}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  <TextField
+                    label="Title"
+                    value={uploadTitle}
+                    onChange={(e) => setUploadTitle(e.target.value)}
+                    fullWidth
+                  />
+                  <TextField
+                    label="Document date"
+                    type="date"
+                    value={uploadCapturedAt}
+                    onChange={(e) => setUploadCapturedAt(e.target.value)}
+                    fullWidth
+                    slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: todayDateInputValue() } }}
+                  />
+                  <Button variant="outlined" component="label">
+                    {uploadFile ? uploadFile.name : "Choose file (JPEG, PNG, or PDF)"}
+                    <input
+                      type="file"
+                      hidden
+                      accept="image/jpeg,image/png,application/pdf"
+                      onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+                    />
+                  </Button>
+                  <Button type="submit" variant="contained">
+                    Upload
+                  </Button>
+                </Stack>
+              </CardContent>
+            </Card>
+          )}
+        </Stack>
+      </Stack>
     </Container>
   );
 }

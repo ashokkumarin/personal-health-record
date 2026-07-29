@@ -4,6 +4,11 @@
 
 This document translates [requirements-and-project-plan.md](../requirements-and-project-plan.md) and [mvp-spec.md](mvp-spec.md) into a concrete architecture. It is the shared reference for every slice spec in `slices/`. Sections below describe the as-built system; each slice doc under `slices/` has the authoritative acceptance criteria for the piece it introduced.
 
+> For the full, continuously-updated technical reference — every API route,
+> C1–C4 architecture diagrams, the complete data model, and per-app internals
+> — see the [documentation wiki](../README.md). This document remains as the
+> concise as-built summary from initial delivery.
+
 ## 1. Repo Layout (npm workspaces monorepo)
 
 ```

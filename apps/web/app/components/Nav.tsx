@@ -11,6 +11,7 @@ import Stack from "@mui/material/Stack";
 import IconButton from "@mui/material/IconButton";
 import Avatar from "@mui/material/Avatar";
 import Badge from "@mui/material/Badge";
+import { useTheme, alpha } from "@mui/material/styles";
 import Menu from "@mui/material/Menu";
 import MenuItem from "@mui/material/MenuItem";
 import Divider from "@mui/material/Divider";
@@ -28,6 +29,12 @@ import LogoMark from "./LogoMark";
 export default function Nav() {
   const router = useRouter();
   const pathname = usePathname();
+  const theme = useTheme();
+  // primary.main tracks the user's customizable banner/app-bar color (see
+  // theme.ts) — border the avatar in a translucent version of that color's
+  // contrast text so it reads as a subtle outline rather than blending into
+  // the app bar, regardless of which banner color is picked.
+  const avatarBorderColor = alpha(theme.palette.primary.contrastText, 0.5);
   const [userName, setUserName] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
@@ -114,7 +121,16 @@ export default function Nav() {
               </Badge>
             </IconButton>
             <IconButton onClick={(e) => setAnchorEl(e.currentTarget)} sx={{ ml: 1 }}>
-              <Avatar src={avatarUrl ?? undefined} sx={{ width: 32, height: 32, bgcolor: "secondary.main" }}>
+              <Avatar
+                src={avatarUrl ?? undefined}
+                sx={{
+                  width: 32,
+                  height: 32,
+                  bgcolor: "secondary.main",
+                  border: "2px solid",
+                  borderColor: avatarBorderColor,
+                }}
+              >
                 {userName.charAt(0).toUpperCase()}
               </Avatar>
             </IconButton>

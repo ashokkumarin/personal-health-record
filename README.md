@@ -1,5 +1,9 @@
 # Personal Health Record (PHR)
 
+[![CI](https://github.com/ashokkumarin/personal-health-record/actions/workflows/ci.yml/badge.svg)](https://github.com/ashokkumarin/personal-health-record/actions/workflows/ci.yml)
+[![Release](https://github.com/ashokkumarin/personal-health-record/actions/workflows/release.yml/badge.svg)](https://github.com/ashokkumarin/personal-health-record/actions/workflows/release.yml)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL%20v3-blue.svg)](LICENSE)
+
 A self-hosted, open-source personal health record platform for individuals and families to store, organize, and review medical documents in one place.
 
 The goal of this project is to make health records easier to manage by keeping prescriptions, lab reports, bills, and notes in a single place that can be viewed in a timeline. It is designed for both a web dashboard and a mobile app, with privacy-focused family sharing controls.
@@ -99,7 +103,27 @@ npm run dev:mobile
 
 The API defaults to http://localhost:4000 and the web app to http://localhost:3000.
 
-## Running the full stack in Docker
+## Running from published images (recommended for homelab use)
+
+No source checkout or build tooling required — this pulls pre-built images published by CI on every release.
+
+```bash
+mkdir phr && cd phr
+curl -fsSLO https://raw.githubusercontent.com/ashokkumarin/personal-health-record/main/docker/release/docker-compose.yml
+curl -fsSLO https://raw.githubusercontent.com/ashokkumarin/personal-health-record/main/docker/release/.env.example
+cp .env.example .env   # edit JWT_SECRET, ports, and *_PUBLIC_URL/ORIGIN
+docker compose up -d
+```
+
+Images are published to GHCR (`ghcr.io/ashokkumarin/phr-api`, `phr-web`) and
+Docker Hub, for both `linux/amd64` and `linux/arm64` (Raspberry Pi/NAS
+friendly). Pin `PHR_VERSION` in `.env` to a specific
+[release](https://github.com/ashokkumarin/personal-health-record/releases)
+tag rather than tracking `latest` once you have real data in the instance —
+bump it deliberately with `docker compose up -d --pull always` when you're
+ready to upgrade.
+
+## Building the full stack from source (for development/contributing)
 
 For a homelab or any host without Node.js installed, `docker-compose.yml` also builds and runs the `api` and `web` apps as containers alongside `postgres`.
 
@@ -149,6 +173,19 @@ The original product requirements and delivery history are documented in:
 - [docs/requirements-and-project-plan.md](docs/requirements-and-project-plan.md)
 - [docs/specs/mvp-spec.md](docs/specs/mvp-spec.md)
 - [docs/specs/technical-design.md](docs/specs/technical-design.md)
+
+## Contributing
+
+Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for the
+development workflow and [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md) for
+community guidelines. Please report security vulnerabilities privately per
+[SECURITY.md](SECURITY.md) rather than filing a public issue.
+
+## License
+
+Licensed under [AGPL-3.0-or-later](LICENSE). If you run a modified version
+of this project as a network service, the AGPL requires that you make your
+modified source available to that service's users.
 
 ## Current status
 

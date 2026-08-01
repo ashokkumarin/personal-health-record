@@ -1,0 +1,77 @@
+# Quickstart for running Personal Health Record (PHR) from published images —
+# no source checkout or build tooling required.
+#
+#   mkdir phr && cd phr
+#   curl -fsSLO https://raw.githubusercontent.com/ashokkumarin/personal-health-record/main/docker/release/docker-compose.yml
+#   curl -fsSLO https://raw.githubusercontent.com/ashokkumarin/personal-health-record/main/docker/release/.env.example
+#   cp .env.example .env   # then edit JWT_SECRET, ports, and *_PUBLIC_URL/ORIGIN below
+#   docker compose up -d
+#
+# To upgrade later: pin PHR_VERSION to a new release tag (see GitHub Releases)
+# and run `docker compose up -d --pull always` again. Avoid `latest` once you
+# have real data in this instance — pin a version and bump it deliberately.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: phr
+      POSTGRES_PASSWORD: phr
+      POSTGRES_DB: phr
+    volumes:
+      - phr-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U phr"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  api:
+    image: ghcr.io/ashokkumarin/phr-api:${PHR_VERSION:-latest}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://phr:phr@postgres:5432/phr
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in your .env to a long random value before starting}
+      MEDIA_ROOT: /app/media
+      API_PORT: ${API_PORT:-4000}
+      API_PUBLIC_URL: ${API_PUBLIC_URL:?Set API_PUBLIC_URL in your .env to how your browser reaches this host, e.g. http://homelab-ip:4000}
+      WEB_ORIGIN: ${WEB_ORIGIN:?Set WEB_ORIGIN in your .env to how your browser reaches the web app, e.g. http://homelab-ip:3000}
+    ports:
+      - "${API_PORT:-4000}:${API_PORT:-4000}"
+    volumes:
+      - phr-media:/app/media
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch(`http://localhost:$${process.env.API_PORT}/health`).then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+  web:
+    image: ghcr.io/ashokkumarin/phr-web:${PHR_VERSION:-latest}
+    depends_on:
+      api:
+        condition: service_healthy
+    environment:
+      WEB_PORT: ${WEB_PORT:-3000}
+      API_INTERNAL_URL: http://api:${API_PORT:-4000}
+    ports:
+      - "${WEB_PORT:-3000}:${WEB_PORT:-3000}"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch(`http://localhost:$${process.env.WEB_PORT}/`).then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+
+volumes:
+  phr-postgres-data:
+  # Uploaded documents/thumbnails/avatars. Point this at a host bind mount
+  # instead (e.g. replace with `./data/media:/app/media` on both the api
+  # service above) if you want the files directly accessible on disk.
+  phr-media:

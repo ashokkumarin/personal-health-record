@@ -1,14 +1,19 @@
 import { useCallback, useState } from "react";
 import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { ActivityIndicator, Card, FAB, IconButton, Snackbar, Text, useTheme } from "react-native-paper";
+import { ActivityIndicator, Card, FAB, IconButton, Menu, Snackbar, Text, useTheme } from "react-native-paper";
 import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { MedicalRecord, PatientProfile } from "@phr/shared";
 import { useApi } from "../lib/useApi";
 import { useAuth } from "../lib/authContext";
 import { downloadAndShareAll } from "../lib/download";
-import RecordList, { sortRecordsForTimeline, type TimelineView } from "../components/RecordList";
+import RecordList, {
+  sortRecordsForTimeline,
+  SORT_OPTION_LABELS,
+  type SortOption,
+  type TimelineView,
+} from "../components/RecordList";
 import SelectionBar from "../components/SelectionBar";
 import type { AppStackParamList } from "../navigation/types";
 
@@ -25,6 +30,8 @@ export default function TimelineScreen({ navigation }: Props) {
   const [records, setRecords] = useState<MedicalRecord[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<TimelineView>(user?.defaultTimelineView ?? "grid");
+  const [sortOption, setSortOption] = useState<SortOption>("date-desc");
+  const [sortMenuOpen, setSortMenuOpen] = useState(false);
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [downloading, setDownloading] = useState(false);
@@ -113,10 +120,29 @@ export default function TimelineScreen({ navigation }: Props) {
               {patient ? `${patient.name}'s Health Record` : "My Health Record"}
             </Text>
             {patient && (
-              <IconButton
-                icon={view === "grid" ? "view-list" : "view-grid"}
-                onPress={() => setView(view === "grid" ? "list" : "grid")}
-              />
+              <View style={{ flexDirection: "row" }}>
+                <Menu
+                  visible={sortMenuOpen}
+                  onDismiss={() => setSortMenuOpen(false)}
+                  anchor={<IconButton icon="sort" onPress={() => setSortMenuOpen(true)} />}
+                >
+                  {(Object.keys(SORT_OPTION_LABELS) as SortOption[]).map((option) => (
+                    <Menu.Item
+                      key={option}
+                      title={SORT_OPTION_LABELS[option]}
+                      leadingIcon={sortOption === option ? "check" : undefined}
+                      onPress={() => {
+                        setSortOption(option);
+                        setSortMenuOpen(false);
+                      }}
+                    />
+                  ))}
+                </Menu>
+                <IconButton
+                  icon={view === "grid" ? "view-list" : "view-grid"}
+                  onPress={() => setView(view === "grid" ? "list" : "grid")}
+                />
+              </View>
             )}
           </View>
         )}
@@ -139,12 +165,13 @@ export default function TimelineScreen({ navigation }: Props) {
           <RecordList
             records={records}
             view={view}
+            sortOption={sortOption}
             selectionMode={selectionMode}
             selectedIds={selectedIds}
             onToggleSelect={toggleSelect}
             onLongPressRecord={startSelection}
             onPressRecord={(record) => {
-              const ordered = sortRecordsForTimeline(records);
+              const ordered = sortRecordsForTimeline(records, sortOption);
               navigation.navigate("RecordViewer", {
                 recordIds: ordered.map((r) => r.id),
                 index: ordered.findIndex((r) => r.id === record.id),

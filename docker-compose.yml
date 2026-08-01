@@ -34,18 +34,31 @@ services:
       - "${API_PORT}:${API_PORT}"
     volumes:
       - phr-media:/app/media
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch(`http://localhost:$${process.env.API_PORT}/health`).then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     environment:
       WEB_PORT: ${WEB_PORT}
       API_INTERNAL_URL: http://api:${API_PORT}
     ports:
       - "${WEB_PORT}:${WEB_PORT}"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch(`http://localhost:$${process.env.WEB_PORT}/`).then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
 
 volumes:
   phr-postgres-data:

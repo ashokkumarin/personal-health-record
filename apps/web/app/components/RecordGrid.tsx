@@ -34,6 +34,7 @@ import MoreVertIcon from "@mui/icons-material/MoreVert";
 import EditIcon from "@mui/icons-material/Edit";
 import DeleteIcon from "@mui/icons-material/Delete";
 import DownloadIcon from "@mui/icons-material/Download";
+import SortIcon from "@mui/icons-material/Sort";
 import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
 import ImageIcon from "@mui/icons-material/Image";
 
@@ -41,6 +42,20 @@ interface RecordGridProps {
   records: MedicalRecord[];
   view?: "grid" | "list";
   onChanged: () => void;
+}
+
+type SortOption = "date-desc" | "date-asc";
+
+const SORT_OPTION_LABELS: Record<SortOption, string> = {
+  "date-desc": "Newest first",
+  "date-asc": "Oldest first",
+};
+
+function sortRecords(records: MedicalRecord[], sortOption: SortOption): MedicalRecord[] {
+  const sorted = [...records];
+  return sortOption === "date-asc"
+    ? sorted.sort((a, b) => (a.capturedAt ?? a.uploadedAt).localeCompare(b.capturedAt ?? b.uploadedAt))
+    : sorted.sort((a, b) => (b.capturedAt ?? b.uploadedAt).localeCompare(a.capturedAt ?? a.uploadedAt));
 }
 
 function monthYearLabel(dateStr: string): string {
@@ -97,6 +112,11 @@ export default function RecordGrid({ records, view = "grid", onChanged }: Record
   const [bulkDownloading, setBulkDownloading] = useState(false);
   const [bulkProgress, setBulkProgress] = useState(0);
 
+  const [sortOption, setSortOption] = useState<SortOption>("date-desc");
+  const [sortMenuAnchor, setSortMenuAnchor] = useState<HTMLElement | null>(null);
+
+  const sortedRecords = useMemo(() => sortRecords(records, sortOption), [records, sortOption]);
+
   const menuRecord = records.find((r) => r.id === menuRecordId) ?? null;
 
   function toggleSelect(id: string) {
@@ -149,7 +169,7 @@ export default function RecordGrid({ records, view = "grid", onChanged }: Record
 
   const groups = useMemo(() => {
     const byMonth = new Map<string, MedicalRecord[]>();
-    for (const record of records) {
+    for (const record of sortedRecords) {
       const key = monthYearLabel(record.capturedAt ?? record.uploadedAt);
       const bucket = byMonth.get(key);
       if (bucket) {
@@ -159,7 +179,7 @@ export default function RecordGrid({ records, view = "grid", onChanged }: Record
       }
     }
     return Array.from(byMonth.entries());
-  }, [records]);
+  }, [sortedRecords]);
 
   async function openPreview(record: MedicalRecord) {
     setError(null);
@@ -178,11 +198,11 @@ export default function RecordGrid({ records, view = "grid", onChanged }: Record
   // the first document instead of leaving the pane empty.
   useEffect(() => {
     if (view !== "list") return;
-    if (previewRecord && records.some((r) => r.id === previewRecord.id)) return;
-    if (records.length > 0) openPreview(records[0]);
+    if (previewRecord && sortedRecords.some((r) => r.id === previewRecord.id)) return;
+    if (sortedRecords.length > 0) openPreview(sortedRecords[0]);
     else setPreviewRecord(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [view, records]);
+  }, [view, sortedRecords]);
 
   function openEdit(record: MedicalRecord) {
     setMenuAnchor(null);
@@ -250,7 +270,7 @@ export default function RecordGrid({ records, view = "grid", onChanged }: Record
         </Alert>
       )}
 
-      <Stack direction="row" sx={{ justifyContent: "flex-end", mb: 1.5 }}>
+      <Stack direction="row" sx={{ justifyContent: "flex-end", alignItems: "center", gap: 1, mb: 1.5 }}>
         {selectionMode ? (
           <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
             <Typography variant="body2" color="text.secondary">
@@ -270,9 +290,32 @@ export default function RecordGrid({ records, view = "grid", onChanged }: Record
             </Button>
           </Stack>
         ) : (
-          <Button size="small" onClick={() => setSelectionMode(true)}>
-            Select
-          </Button>
+          <>
+            <Button
+              size="small"
+              startIcon={<SortIcon />}
+              onClick={(e) => setSortMenuAnchor(e.currentTarget)}
+            >
+              {SORT_OPTION_LABELS[sortOption]}
+            </Button>
+            <Menu anchorEl={sortMenuAnchor} open={Boolean(sortMenuAnchor)} onClose={() => setSortMenuAnchor(null)}>
+              {(Object.keys(SORT_OPTION_LABELS) as SortOption[]).map((option) => (
+                <MenuItem
+                  key={option}
+                  selected={option === sortOption}
+                  onClick={() => {
+                    setSortOption(option);
+                    setSortMenuAnchor(null);
+                  }}
+                >
+                  {SORT_OPTION_LABELS[option]}
+                </MenuItem>
+              ))}
+            </Menu>
+            <Button size="small" onClick={() => setSelectionMode(true)}>
+              Select
+            </Button>
+          </>
         )}
       </Stack>
 

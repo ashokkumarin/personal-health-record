@@ -4,10 +4,17 @@ import { Divider, Icon, Text, useTheme } from "react-native-paper";
 import { recordTypeLabels, type MedicalRecord } from "@phr/shared";
 
 export type TimelineView = "grid" | "list";
+export type SortOption = "date-desc" | "date-asc";
+
+export const SORT_OPTION_LABELS: Record<SortOption, string> = {
+  "date-desc": "Newest first",
+  "date-asc": "Oldest first",
+};
 
 interface Props {
   records: MedicalRecord[];
   view: TimelineView;
+  sortOption?: SortOption;
   onPressRecord: (record: MedicalRecord) => void;
   selectionMode?: boolean;
   selectedIds?: Set<string>;
@@ -15,16 +22,20 @@ interface Props {
   onLongPressRecord?: (record: MedicalRecord) => void;
 }
 
-type ItemProps = Omit<Props, "view" | "records"> & { records: MedicalRecord[] };
+type ItemProps = Omit<Props, "view" | "records" | "sortOption"> & { records: MedicalRecord[] };
 
 function fallbackIcon(fileType: string) {
   return fileType === "application/pdf" ? "file-pdf-box" : "file-image";
 }
 
-export function sortRecordsForTimeline(records: MedicalRecord[]): MedicalRecord[] {
-  return [...records].sort((a, b) =>
-    (b.capturedAt ?? b.uploadedAt).localeCompare(a.capturedAt ?? a.uploadedAt)
-  );
+export function sortRecordsForTimeline(
+  records: MedicalRecord[],
+  sortOption: SortOption = "date-desc"
+): MedicalRecord[] {
+  const sorted = [...records];
+  return sortOption === "date-asc"
+    ? sorted.sort((a, b) => (a.capturedAt ?? a.uploadedAt).localeCompare(b.capturedAt ?? b.uploadedAt))
+    : sorted.sort((a, b) => (b.capturedAt ?? b.uploadedAt).localeCompare(a.capturedAt ?? a.uploadedAt));
 }
 
 function groupByDate(sorted: MedicalRecord[]) {
@@ -70,6 +81,7 @@ function formatGroupDate(date: string): string {
 export default function RecordList({
   records,
   view,
+  sortOption = "date-desc",
   onPressRecord,
   selectionMode = false,
   selectedIds,
@@ -86,7 +98,7 @@ export default function RecordList({
     );
   }
 
-  const sorted = sortRecordsForTimeline(records);
+  const sorted = sortRecordsForTimeline(records, sortOption);
   const itemProps: ItemProps = {
     records: sorted,
     onPressRecord,

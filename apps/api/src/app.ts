@@ -18,6 +18,7 @@ export function buildApp() {
     // route still requires a bearer token that this origin never has.
     origin: [process.env.WEB_ORIGIN ?? "http://localhost:3000", "https://mozilla.github.io"],
   });
+  app.get("/health", async () => ({ status: "ok" }));
   app.register(authRoutes);
   app.register(familiesRoutes);
   app.register(approvalsRoutes);

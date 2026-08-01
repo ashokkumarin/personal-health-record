@@ -1,0 +1,46 @@
+name: Bug report
+description: Report something that's broken
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For security vulnerabilities, please use private reporting instead
+        (see [SECURITY.md](../../SECURITY.md)) — do not file a public issue.
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Image tag / release version you're running (e.g. v1.2.3, or the git commit if built from source)
+    validations:
+      required: true
+  - type: dropdown
+    id: deployment
+    attributes:
+      label: Deployment method
+      options:
+        - docker-compose (published images)
+        - docker-compose (built from source)
+        - Manual/local (npm run dev)
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs
+      description: "`docker compose logs api web` output, if applicable"
+      render: shell

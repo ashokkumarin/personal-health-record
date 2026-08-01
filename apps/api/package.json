@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "dotenv -e ../../.env -- tsx watch src/server.ts",
+    "dev": "dotenv -e ../../.env -- node scripts/dev.mjs",
     "build": "tsc -p tsconfig.json",
     "start": "dotenv -e ../../.env -- node dist/server.js",
     "test": "dotenv -e .env.test -- vitest run",

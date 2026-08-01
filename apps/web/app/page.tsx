@@ -19,11 +19,15 @@ import TextField from "@mui/material/TextField";
 import MenuItem from "@mui/material/MenuItem";
 import Grid from "@mui/material/Grid";
 import Collapse from "@mui/material/Collapse";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import ToggleButton from "@mui/material/ToggleButton";
 import AddIcon from "@mui/icons-material/Add";
 import FilterListIcon from "@mui/icons-material/FilterList";
+import GridViewIcon from "@mui/icons-material/GridView";
+import ViewListIcon from "@mui/icons-material/ViewList";
 import type { MedicalRecord, PatientProfile, RecordType } from "@phr/shared";
 import { recordTypes, recordTypeLabels, uploadRecordFieldsSchema } from "@phr/shared";
-import { getToken } from "../lib/auth";
+import { getToken, getCurrentUser } from "../lib/auth";
 import { recordsClient } from "../lib/api";
 import { todayDateInputValue } from "../lib/date";
 import RecordGrid from "./components/RecordGrid";
@@ -37,6 +41,9 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
 
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [view, setView] = useState<"grid" | "list">(
+    () => getCurrentUser()?.defaultTimelineView ?? "grid"
+  );
   const [recordType, setRecordType] = useState<RecordType | "">("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -74,7 +81,7 @@ export default function Home() {
         setPatientChecked(true);
         if (timeline.patient) search(undefined, timeline.patient);
       })
-      .catch(() => setError("Could not load your timeline."));
+      .catch(() => setError("Could not load your health record."));
   }
 
   useEffect(() => {
@@ -152,13 +159,26 @@ export default function Home() {
   }
 
   return (
-    <Container maxWidth="md" sx={{ mt: 4, mb: 6 }}>
+    <Container maxWidth={view === "list" ? "lg" : "md"} sx={{ mt: 4, mb: 6 }}>
       <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 2, justifyContent: "space-between" }}>
         <Typography variant="h4" sx={{ fontWeight: 600 }}>
-          {patient ? `${patient.name}'s Timeline` : "Your timeline"}
+          {patient ? `${patient.name}'s Health Record` : "My Health Record"}
         </Typography>
         {patient && (
-          <Stack direction="row" spacing={1}>
+          <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+            <ToggleButtonGroup
+              value={view}
+              exclusive
+              size="small"
+              onChange={(_e, next) => next && setView(next)}
+            >
+              <ToggleButton value="grid" title="Thumbnail view">
+                <GridViewIcon fontSize="small" />
+              </ToggleButton>
+              <ToggleButton value="list" title="List view">
+                <ViewListIcon fontSize="small" />
+              </ToggleButton>
+            </ToggleButtonGroup>
             <IconButton
               color={filtersOpen ? "primary" : "default"}
               onClick={() => setFiltersOpen((open) => !open)}
@@ -255,7 +275,7 @@ export default function Home() {
 
       {patient !== null && records !== null && (
         records.length > 0 ? (
-          <RecordGrid records={records} onChanged={() => search()} />
+          <RecordGrid records={records} view={view} onChanged={() => search()} />
         ) : (
           <Card variant="outlined">
             <CardContent>

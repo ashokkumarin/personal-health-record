@@ -2,10 +2,20 @@
   "name": "personal-health-record",
   "version": "1.0.0",
   "private": true,
+  "license": "AGPL-3.0-or-later",
   "workspaces": [
     "apps/*",
     "packages/*"
   ],
+  "overrides": {
+    "react-native": {
+      "react": "19.1.0"
+    },
+    "react-native-worklets": "0.5.1",
+    "styled-jsx": {
+      "react": "18.2.0"
+    }
+  },
   "scripts": {
     "dev:api": "npm run dev --workspace apps/api",
     "dev:web": "npm run dev --workspace apps/web",

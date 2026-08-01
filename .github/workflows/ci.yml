@@ -1,0 +1,91 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, develop]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  typecheck-and-test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: phr
+          POSTGRES_PASSWORD: phr
+          POSTGRES_DB: phr_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U phr"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build shared package
+        run: npm run build --workspace packages/shared
+
+      - name: Typecheck shared package
+        run: npm run typecheck --workspace packages/shared
+
+      - name: Generate Prisma client
+        run: npm run prisma:generate --workspace apps/api
+
+      - name: Typecheck api
+        run: npx tsc -p apps/api/tsconfig.json --noEmit
+
+      - name: Typecheck web
+        run: npx tsc -p apps/web/tsconfig.json --noEmit
+
+      - name: Write api test env
+        run: |
+          cat > apps/api/.env.test <<'EOF'
+          DATABASE_URL=postgresql://phr:phr@localhost:5432/phr_test
+          JWT_SECRET=ci-test-secret
+          MEDIA_ROOT=./data/media-test
+          EOF
+        working-directory: .
+
+      - name: Run api migrations
+        run: npm run test:migrate --workspace apps/api
+
+      - name: Run api tests
+        run: npm run test:api
+
+  build-images:
+    runs-on: ubuntu-latest
+    needs: typecheck-and-test
+    strategy:
+      matrix:
+        target: [api, web]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.target }} image (not pushed)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: apps/${{ matrix.target }}/Dockerfile
+          push: false
+          cache-from: type=gha,scope=${{ matrix.target }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.target }}

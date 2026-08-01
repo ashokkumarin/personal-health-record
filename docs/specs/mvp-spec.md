@@ -1,6 +1,6 @@
 # MVP Specification: Personal Health Record System
 
-**Status: Delivered — MVP v1.0** (`docs/specs/slices/01` through `08`; see each slice doc for acceptance criteria and definition of done).
+**Status: Delivered — MVP v1.0** (`docs/specs/slices/01` through `08`), **plus post-MVP enhancements** (`docs/specs/slices/10` through `13`) bringing the mobile app to feature parity with web and adding bulk download and timeline sorting to both. See each slice doc for acceptance criteria and definition of done.
 
 ## 1. Objective
 Build a first release of the personal health record system that allows a user to create an account, create a family with multiple admins, add family members either as fully-managed patient profiles or as linked user accounts (with approval), upload and thumbnail medical documents, view/preview/edit/delete them in a timeline, and control who in the family can see them.
@@ -18,6 +18,10 @@ This spec covers the full MVP v1.0 delivery — every slice in `docs/specs/slice
 - Personal home timeline, sidebar family/patient tree navigation, profile page (name/email/optional photo/optional mobile number), settings page for family management (Slice 6)
 - Record thumbnails (real rendered PDF first page or resized image), click-to-preview, edit metadata, replace the underlying file, delete a record (Slice 7)
 - Product logo/favicon and a visible release label (Slice 8)
+- Mobile app navigation rebuilt to match web: top banner, hamburger drawer with family/patient tree, profile menu (Profile/Settings/Log out), own-timeline-first landing (Slice 10)
+- Mobile in-app document viewing (image preview, PDF via native "open with"), swipe between records, download to device on web and mobile (Slice 11)
+- Multi-select and bulk download of records on web and mobile (Slice 12)
+- Timeline sort order (newest first / oldest first) on web and mobile (Slice 13)
 
 ### Out of Scope (for v1.0)
 - Advanced/high-accuracy OCR or structured data extraction
@@ -26,7 +30,6 @@ This spec covers the full MVP v1.0 delivery — every slice in `docs/specs/slice
 - Doctor/clinic integrations
 - Multi-language UI
 - Password reset and phone-based login (deferred from Slice 1)
-- Mobile parity for navigation rework, settings, and record editing (mobile has read-only/basic flows only)
 
 ## 3. User Stories
 
@@ -53,6 +56,21 @@ As the uploader, a family owner/admin, or the patient a record belongs to, I wan
 
 ### Story 8: Personal navigation
 As a logged-in user, I want to land on my own timeline and move between my families and their patients from a single sidebar so that I don't have to hunt through a families list to find what I'm looking for.
+
+### Story 9: Mobile navigation parity
+As a mobile app user, I want the same navigation structure as the web app — a top banner, a hamburger menu with my families and patients, a profile menu with settings and logout, and my own health record as the landing screen — so that switching between web and mobile feels like the same product.
+
+### Story 10: View and navigate documents on mobile
+As a user, I want to open a document (image or PDF) directly from the app and swipe to the next or previous one, so that I can review a batch of records without repeatedly returning to the list.
+
+### Story 11: Download documents
+As a user, I want to download a document to my device from either app, so that I can save, print, or send it outside the app (e.g. to a doctor) without depending on a live connection to view it again.
+
+### Story 12: Bulk download
+As a user, I want to select several records at once and download all of them, so that I don't have to download documents one at a time when I need a full set (e.g. before a doctor's visit).
+
+### Story 13: Sort the health record
+As a user, I want to sort my health record by newest-first or oldest-first, so that I can quickly find either the most recent document or the earliest one in a patient's history.
 
 ## 4. Functional Requirements
 
@@ -102,6 +120,26 @@ As a logged-in user, I want to land on my own timeline and move between my famil
 - A profile page shall let the user edit name (required), email (required), photo (optional), and mobile number (optional).
 - A settings page shall provide family creation and management entry points.
 
+### 4.10 Mobile Navigation Parity
+- The mobile app shall present a top banner with a hamburger menu (opening a drawer with the user's families and patients), and a profile icon opening a menu with Profile, Settings, and Log out.
+- Settings shall be reached from the profile menu, not from the hamburger drawer, matching web.
+- A logged-in mobile user shall land on their own health record, not a families list.
+- The mobile app's top banner and primary action buttons shall reflect the user's chosen banner color, matching web.
+
+### 4.11 Document Viewing & Download
+- Tapping/clicking a record shall open a full view of the document (image inline; PDF via the platform's native rendering — an embedded viewer on web, the device's own PDF app on mobile).
+- On mobile, viewing a document shall allow swiping to the next or previous record in the current sort order without returning to the list; swiping past the first or last record shall have no effect.
+- Both apps shall provide a way to download a single document to the user's device.
+
+### 4.12 Bulk Selection & Download
+- Both apps shall allow selecting multiple records from a timeline (grid or list view) and downloading all of them.
+- The selection UI shall show a running count of selected records and allow clearing the selection without downloading.
+- A bulk download that partially fails shall report how many of the selected records failed, rather than failing silently or aborting the remaining downloads.
+
+### 4.13 Timeline Sorting
+- Both apps shall let the user choose the sort order of a timeline: newest first (default) or oldest first.
+- The chosen sort order shall apply consistently across the grid/list view and the order used when navigating between documents (e.g. swiping on mobile).
+
 ## 5. Non-Functional Requirements
 - The experience shall be mobile-first and simple to use.
 - Uploading and viewing documents shall feel responsive.
@@ -134,6 +172,18 @@ Each slice doc under `docs/specs/slices/` states its own acceptance criteria in 
 ### Record management
 - Given a record the caller is authorized to manage, when they edit, replace, or delete it, then the change takes effect; an unauthorized member is rejected with 403.
 
+### Mobile navigation parity
+- Given a logged-in mobile user, when the app loads, then they land on their own health record, and the hamburger drawer shows their families/patients while Settings lives in the profile menu, not the drawer.
+
+### Document viewing & download
+- Given an open document on mobile, when the user swipes left or right, then the viewer shows the next/previous record in the current sort order (no-op at the first/last record); given either app, when the user chooses to download a document, then it's saved to their device.
+
+### Bulk download
+- Given multiple selected records, when the user chooses to download them, then each is downloaded in turn and any failures are reported by count rather than silently dropped.
+
+### Timeline sorting
+- Given a timeline with records, when the user changes the sort order, then both the displayed grouping and the record-to-record navigation order (e.g. mobile swipe) update to match.
+
 ## 7. Implementation Guidance for Spec-Driven Development
 1. Write the acceptance criteria first.
 2. Break each acceptance criterion into implementation tasks.
@@ -154,4 +204,10 @@ Delivered in order (see each slice doc for full acceptance criteria and definiti
 8. `08-branding-and-versioning.md` — Branding & versioning (MVP v1.0)
 9. `09-local-media-storage.md` — Local disk media storage (replaces MinIO)
 
-No further slices are currently planned; this is the MVP v1.0 release.
+MVP v1.0 ends here. Post-MVP enhancements, delivered after user feedback on the mobile app:
+10. `10-mobile-app-parity.md` — Mobile app navigation parity (Story 9)
+11. `11-document-viewing-and-download.md` — Document viewing, swipe navigation & download (Stories 10–11)
+12. `12-bulk-selection-and-download.md` — Bulk selection & download (Story 12)
+13. `13-timeline-sorting.md` — Timeline sorting (Story 13)
+
+No further slices are currently planned.

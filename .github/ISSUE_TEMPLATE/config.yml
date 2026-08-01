@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security vulnerability
+    url: https://github.com/ashokkumarin/personal-health-record/security/advisories/new
+    about: Please report security vulnerabilities privately, not as a public issue.
+  - name: Questions / discussion
+    url: https://github.com/ashokkumarin/personal-health-record/discussions
+    about: Ask setup/usage questions here instead of filing an issue.

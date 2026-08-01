@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import type { FamilyDetail, MedicalRecord, RecordType } from "@phr/shared";
 import { recordTypes, recordTypeLabels, uploadRecordFieldsSchema } from "@phr/shared";
 import { familyClient, recordsClient } from "../../../../lib/api";
-import { getToken } from "../../../../lib/auth";
+import { getToken, getCurrentUser } from "../../../../lib/auth";
 import Container from "@mui/material/Container";
 import Typography from "@mui/material/Typography";
 import Card from "@mui/material/Card";
@@ -22,8 +22,12 @@ import DialogTitle from "@mui/material/DialogTitle";
 import DialogContent from "@mui/material/DialogContent";
 import DialogActions from "@mui/material/DialogActions";
 import Collapse from "@mui/material/Collapse";
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup";
+import ToggleButton from "@mui/material/ToggleButton";
 import AddIcon from "@mui/icons-material/Add";
 import FilterListIcon from "@mui/icons-material/FilterList";
+import GridViewIcon from "@mui/icons-material/GridView";
+import ViewListIcon from "@mui/icons-material/ViewList";
 import { todayDateInputValue } from "../../../../lib/date";
 import RecordGrid from "../../../components/RecordGrid";
 import PageBreadcrumbs from "../../../components/PageBreadcrumbs";
@@ -44,6 +48,9 @@ export default function TimelinePage() {
   const [q, setQ] = useState("");
 
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [view, setView] = useState<"grid" | "list">(
+    () => getCurrentUser()?.defaultTimelineView ?? "grid"
+  );
 
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadPatientId, setUploadPatientId] = useState(patientId);
@@ -60,7 +67,7 @@ export default function TimelinePage() {
     : [
         { label: "Settings", href: "/settings" },
         { label: family?.name ?? "Family", href: `/families/${id}` },
-        { label: "Timeline" },
+        { label: "Health Record" },
       ];
 
   useEffect(() => {
@@ -146,13 +153,26 @@ export default function TimelinePage() {
   }
 
   return (
-    <Container maxWidth="md" sx={{ mt: 4, mb: 6 }}>
+    <Container maxWidth={view === "list" ? "lg" : "md"} sx={{ mt: 4, mb: 6 }}>
       <PageBreadcrumbs items={breadcrumbItems} />
       <Stack direction="row" spacing={1} sx={{ alignItems: "center", mb: 2, justifyContent: "space-between" }}>
         <Typography variant="h4" sx={{ fontWeight: 600 }}>
-          {selectedPatientName ? `${selectedPatientName}'s Timeline` : "Timeline"}
+          {selectedPatientName ? `${selectedPatientName}'s Health Record` : "Health Record"}
         </Typography>
-        <Stack direction="row" spacing={1}>
+        <Stack direction="row" spacing={1} sx={{ alignItems: "center" }}>
+          <ToggleButtonGroup
+            value={view}
+            exclusive
+            size="small"
+            onChange={(_e, next) => next && setView(next)}
+          >
+            <ToggleButton value="grid" title="Thumbnail view">
+              <GridViewIcon fontSize="small" />
+            </ToggleButton>
+            <ToggleButton value="list" title="List view">
+              <ViewListIcon fontSize="small" />
+            </ToggleButton>
+          </ToggleButtonGroup>
           <IconButton
             color={filtersOpen ? "primary" : "default"}
             onClick={() => setFiltersOpen((open) => !open)}
@@ -234,7 +254,7 @@ export default function TimelinePage() {
       </Collapse>
 
       {records && records.length > 0 ? (
-        <RecordGrid records={records} onChanged={() => search()} />
+        <RecordGrid records={records} view={view} onChanged={() => search()} />
       ) : (
         <Card variant="outlined">
           <CardContent>

@@ -40,18 +40,41 @@ export default function SettingsPage() {
       </Typography>
 
       <Stack direction={{ xs: "column", sm: "row" }} spacing={3} sx={{ alignItems: "flex-start" }}>
-        <Card variant="outlined" sx={{ width: { xs: "100%", sm: 220 }, flexShrink: 0 }}>
-          <List disablePadding>
-            {SECTIONS.map((s) => (
-              <ListItemButton
-                key={s.id}
-                selected={section === s.id}
-                onClick={() => setSection(s.id)}
-              >
-                <ListItemIcon sx={{ minWidth: 36 }}>{s.icon}</ListItemIcon>
-                <ListItemText primary={s.label} />
-              </ListItemButton>
-            ))}
+        <Card
+          variant="outlined"
+          sx={{ width: { xs: "100%", sm: 240 }, flexShrink: 0, position: { sm: "sticky" }, top: { sm: 88 } }}
+        >
+          <List disablePadding sx={{ py: 1 }}>
+            {SECTIONS.map((s) => {
+              const selected = section === s.id;
+              return (
+                <ListItemButton
+                  key={s.id}
+                  selected={selected}
+                  onClick={() => setSection(s.id)}
+                  sx={{
+                    mx: 1,
+                    borderRadius: 1.5,
+                    borderLeft: "3px solid",
+                    borderLeftColor: selected ? "primary.main" : "transparent",
+                    "&.Mui-selected": {
+                      bgcolor: (theme) => `${theme.palette.primary.main}14`,
+                    },
+                    "&.Mui-selected:hover": {
+                      bgcolor: (theme) => `${theme.palette.primary.main}20`,
+                    },
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 36, color: selected ? "primary.main" : "text.secondary" }}>
+                    {s.icon}
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={s.label}
+                    slotProps={{ primary: { sx: { fontWeight: selected ? 600 : 400 } } }}
+                  />
+                </ListItemButton>
+              );
+            })}
           </List>
         </Card>
 

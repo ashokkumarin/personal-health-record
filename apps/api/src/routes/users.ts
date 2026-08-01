@@ -10,12 +10,16 @@ import { uploadObject, getSignedDownloadUrl } from "../storage.js";
 
 const SUPPORTED_PHOTO_MIME_TYPES = new Set(["image/jpeg", "image/png"]);
 
-async function buildUserResponse(user: {
+export async function buildUserResponse(user: {
   id: string;
   name: string;
   email: string;
   phone: string | null;
   avatarPath: string | null;
+  themeColor: string | null;
+  defaultTimelineView: string | null;
+  dateOfBirth: Date | null;
+  address: string | null;
   createdAt: Date;
 }) {
   return {
@@ -23,6 +27,10 @@ async function buildUserResponse(user: {
     name: user.name,
     email: user.email,
     phone: user.phone,
+    themeColor: user.themeColor,
+    defaultTimelineView: user.defaultTimelineView,
+    dateOfBirth: user.dateOfBirth ? user.dateOfBirth.toISOString() : null,
+    address: user.address,
     createdAt: user.createdAt.toISOString(),
     avatarUrl: user.avatarPath ? await getSignedDownloadUrl(user.avatarPath) : null,
   };
@@ -44,10 +52,15 @@ export async function usersRoutes(app: FastifyInstance) {
         .send({ error: "VALIDATION_ERROR", details: parsed.error.flatten() });
     }
 
+    const { dateOfBirth, ...rest } = parsed.data;
+
     try {
       const user = await prisma.user.update({
         where: { id: request.userId },
-        data: parsed.data,
+        data: {
+          ...rest,
+          ...(dateOfBirth !== undefined ? { dateOfBirth: new Date(dateOfBirth) } : {}),
+        },
       });
       return reply.send(await buildUserResponse(user));
     } catch (err) {

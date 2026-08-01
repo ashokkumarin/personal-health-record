@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { registerSchema, loginSchema } from "@phr/shared";
 import { prisma } from "../db.js";
 import { hashPassword, verifyPassword, signToken } from "../auth-utils.js";
+import { buildUserResponse } from "./users.js";
 
 export async function authRoutes(app: FastifyInstance) {
   app.post("/auth/register", async (request, reply) => {
@@ -32,12 +33,7 @@ export async function authRoutes(app: FastifyInstance) {
     });
 
     return reply.code(201).send({
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        createdAt: user.createdAt.toISOString(),
-      },
+      user: await buildUserResponse(user),
       token,
     });
   });
@@ -70,12 +66,7 @@ export async function authRoutes(app: FastifyInstance) {
     });
 
     return reply.send({
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        createdAt: user.createdAt.toISOString(),
-      },
+      user: await buildUserResponse(user),
       token,
     });
   });

@@ -10,8 +10,15 @@ import { filesRoutes } from "./routes/files.js";
 export function buildApp() {
   const app = Fastify({ logger: false });
   app.register(cors, {
-    origin: [process.env.WEB_ORIGIN ?? "http://localhost:3000"],
+    // The mobile app's PDF viewer renders documents via pdf.js's hosted
+    // viewer page, which fetches the (signed, time-limited) file URL
+    // client-side from its own origin — that fetch needs this origin
+    // whitelisted, or the browser blocks it before our /files/* signature
+    // check ever runs. This doesn't widen what's accessible: every other
+    // route still requires a bearer token that this origin never has.
+    origin: [process.env.WEB_ORIGIN ?? "http://localhost:3000", "https://mozilla.github.io"],
   });
+  app.get("/health", async () => ({ status: "ok" }));
   app.register(authRoutes);
   app.register(familiesRoutes);
   app.register(approvalsRoutes);

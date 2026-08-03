@@ -4,6 +4,11 @@
 FROM node:22-bookworm-slim AS builder
 WORKDIR /app
 
+# Base image's bundled npm vendors its own deps (tar, sigstore, picomatch,
+# brace-expansion); update it so those get scanned/patched independently of
+# our own dependency tree.
+RUN npm install -g npm@latest
+
 COPY package.json package-lock.json tsconfig.base.json ./
 COPY packages/shared/package.json packages/shared/package.json
 COPY apps/web/package.json apps/web/package.json
@@ -26,6 +31,8 @@ RUN mkdir -p apps/web/node_modules
 
 FROM node:22-bookworm-slim AS runtime
 WORKDIR /app
+
+RUN npm install -g npm@latest
 
 ENV NODE_ENV=production
 

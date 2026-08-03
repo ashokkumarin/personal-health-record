@@ -8,8 +8,9 @@ function apiInternalUrl(): string {
   return process.env.API_INTERNAL_URL ?? "http://localhost:4000";
 }
 
-async function proxy(request: NextRequest, { params }: { params: { path: string[] } }) {
-  const target = new URL(`${apiInternalUrl()}/${params.path.join("/")}`);
+async function proxy(request: NextRequest, { params }: { params: Promise<{ path: string[] }> }) {
+  const { path } = await params;
+  const target = new URL(`${apiInternalUrl()}/${path.join("/")}`);
   target.search = request.nextUrl.search;
 
   const headers = new Headers(request.headers);

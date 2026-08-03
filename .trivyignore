@@ -8,3 +8,5 @@
 #
 # Example:
 # CVE-2024-00000 # not reachable — affected codepath unused in this image, reviewed 2026-08-02
+
+CVE-2026-14257 # ReDoS in brace-expansion bundled inside npm's own CLI (usr/local/lib/node_modules/npm), not our app's dependency tree; runtime only runs `npx prisma migrate deploy` and `node dist/server.js`, never npm glob/pattern matching on untrusted input. Fixed version (5.0.8) isn't in any published npm release yet — revisit and drop this entry once npm ships one that bundles it. Reviewed 2026-08-03.

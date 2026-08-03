@@ -1,7 +1,7 @@
 # Build context is the repo root (npm workspaces monorepo).
 # docker build -f apps/web/Dockerfile .
 
-FROM node:22-bookworm-slim AS builder
+FROM node:26-bookworm-slim AS builder
 WORKDIR /app
 
 # Base image's bundled npm vendors its own deps (tar, sigstore, picomatch,
@@ -29,7 +29,7 @@ RUN NEXT_IGNORE_INCORRECT_LOCKFILE=1 npm run build --workspace apps/web
 # Ensure the directory exists either way so the COPY below never fails.
 RUN mkdir -p apps/web/node_modules
 
-FROM node:22-bookworm-slim AS runtime
+FROM node:26-bookworm-slim AS runtime
 WORKDIR /app
 
 RUN npm install -g npm@latest

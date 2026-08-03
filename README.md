@@ -8,6 +8,19 @@ A self-hosted, open-source personal health record platform for individuals and f
 
 The goal of this project is to make health records easier to manage by keeping prescriptions, lab reports, bills, and notes in a single place that can be viewed in a timeline. It is designed for both a web dashboard and a mobile app, with privacy-focused family sharing controls.
 
+## Screenshots
+
+> The images below are placeholders — see
+> [docs/screenshots/README.md](docs/screenshots/README.md) for what needs to
+> be captured and how.
+
+| | |
+|---|---|
+| ![Login screen](docs/screenshots/login.svg) | ![Timeline view](docs/screenshots/timeline.svg) |
+| ![Upload flow](docs/screenshots/upload.svg) | ![Family sidebar](docs/screenshots/family-sidebar.svg) |
+
+<img src="docs/screenshots/mobile-timeline.svg" alt="Mobile app timeline" width="240" />
+
 ## Project goal
 
 This project aims to provide a simple and trustworthy way to keep personal and family medical records together without relying on a proprietary cloud service. Users can capture or upload documents, attach them to a patient profile, and browse them chronologically over time.
@@ -122,6 +135,10 @@ friendly). Pin `PHR_VERSION` in `.env` to a specific
 tag rather than tracking `latest` once you have real data in the instance —
 bump it deliberately with `docker compose up -d --pull always` when you're
 ready to upgrade.
+
+**Back up your data.** This project doesn't back anything up for you — see
+[docs/backup-and-restore.md](docs/backup-and-restore.md) for what to back up
+and how, including a full disaster-recovery walkthrough.
 
 ## Building the full stack from source (for development/contributing)
 

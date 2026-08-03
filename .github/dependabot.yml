@@ -1,0 +1,56 @@
+version: 2
+
+updates:
+  # Root workspace + apps/* + packages/* are all covered by npm workspaces —
+  # Dependabot resolves the workspace graph from the root package-lock.json,
+  # so one entry covers apps/api, apps/web, apps/mobile, and packages/shared.
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 10
+    groups:
+      dev-dependencies:
+        dependency-type: "development"
+      production-dependencies:
+        dependency-type: "production"
+        update-types:
+          - "minor"
+          - "patch"
+    labels:
+      - "dependencies"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    labels:
+      - "dependencies"
+      - "ci"
+
+  - package-ecosystem: "docker"
+    directory: "/apps/api"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "docker"
+
+  - package-ecosystem: "docker"
+    directory: "/apps/web"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    open-pull-requests-limit: 3
+    labels:
+      - "dependencies"
+      - "docker"

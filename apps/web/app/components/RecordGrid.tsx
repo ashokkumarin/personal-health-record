@@ -96,6 +96,10 @@ export default function RecordGrid({ records, view = "grid", onChanged }: Record
 
   const [previewRecord, setPreviewRecord] = useState<MedicalRecord | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
+  // Grid mode's modal and list mode's inline pane both show previewRecord, but
+  // only the modal needs an explicit open/close flag — list mode's "openness"
+  // is just previewRecord being non-null, keyed off ListItemButton selection.
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
 
   const [editRecord, setEditRecord] = useState<MedicalRecord | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -181,14 +185,16 @@ export default function RecordGrid({ records, view = "grid", onChanged }: Record
     return Array.from(byMonth.entries());
   }, [sortedRecords]);
 
-  async function openPreview(record: MedicalRecord) {
+  async function openPreview(record: MedicalRecord, { openDialog = false }: { openDialog?: boolean } = {}) {
     setError(null);
     setPreviewLoading(true);
+    if (openDialog) setPreviewDialogOpen(true);
     try {
       const full = await recordsClient().getRecord(record.id);
       setPreviewRecord(full);
     } catch {
       setError("Could not load this document.");
+      if (openDialog) setPreviewDialogOpen(false);
     } finally {
       setPreviewLoading(false);
     }
@@ -203,6 +209,13 @@ export default function RecordGrid({ records, view = "grid", onChanged }: Record
     else setPreviewRecord(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view, sortedRecords]);
+
+  // The dialog only mounts in grid mode (see below), but its open state
+  // outlives that unmount — reset it so switching back to grid later doesn't
+  // reopen it for whatever record list mode last selected.
+  useEffect(() => {
+    if (view !== "grid") setPreviewDialogOpen(false);
+  }, [view]);
 
   function openEdit(record: MedicalRecord) {
     setMenuAnchor(null);
@@ -450,12 +463,12 @@ export default function RecordGrid({ records, view = "grid", onChanged }: Record
                       src={record.thumbnailUrl}
                       alt={record.title}
                       loading="lazy"
-                      onClick={() => (selectionMode ? toggleSelect(record.id) : openPreview(record))}
+                      onClick={() => (selectionMode ? toggleSelect(record.id) : openPreview(record, { openDialog: true }))}
                       style={{ aspectRatio: "1 / 1", objectFit: "cover" }}
                     />
                   ) : (
                     <Box
-                      onClick={() => (selectionMode ? toggleSelect(record.id) : openPreview(record))}
+                      onClick={() => (selectionMode ? toggleSelect(record.id) : openPreview(record, { openDialog: true }))}
                       sx={{
                         aspectRatio: "1 / 1",
                         display: "flex",
@@ -518,12 +531,12 @@ export default function RecordGrid({ records, view = "grid", onChanged }: Record
 
       {view === "grid" && (
         <Dialog
-          open={Boolean(previewRecord) || previewLoading}
-          onClose={() => setPreviewRecord(null)}
+          open={previewDialogOpen}
+          onClose={() => setPreviewDialogOpen(false)}
           maxWidth="md"
           fullWidth
         >
-          <DialogTitle>{previewRecord?.title ?? "Loading..."}</DialogTitle>
+          <DialogTitle>{previewLoading ? "Loading..." : previewRecord?.title}</DialogTitle>
           <DialogContent>{previewRecord && <PreviewBody record={previewRecord} />}</DialogContent>
           <DialogActions>
             {previewRecord?.downloadUrl && (
@@ -538,7 +551,7 @@ export default function RecordGrid({ records, view = "grid", onChanged }: Record
                 Download
               </Button>
             )}
-            <Button onClick={() => setPreviewRecord(null)}>Close</Button>
+            <Button onClick={() => setPreviewDialogOpen(false)}>Close</Button>
           </DialogActions>
         </Dialog>
       )}

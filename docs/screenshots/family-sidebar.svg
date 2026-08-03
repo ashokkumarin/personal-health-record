@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="960" height="600" viewBox="0 0 960 600">
-  <rect width="960" height="600" fill="#eef1f5"/>
-  <rect x="1" y="1" width="958" height="598" fill="none" stroke="#c7cdd6" stroke-width="2" stroke-dasharray="8 6"/>
-  <text x="480" y="285" font-family="Segoe UI, Arial, sans-serif" font-size="26" fill="#4a5568" text-anchor="middle">Screenshot placeholder</text>
-  <text x="480" y="325" font-family="Segoe UI, Arial, sans-serif" font-size="18" fill="#718096" text-anchor="middle">Family / patient sidebar navigation</text>
-  <text x="480" y="360" font-family="Segoe UI, Arial, sans-serif" font-size="14" fill="#a0aec0" text-anchor="middle">Replace docs/screenshots/family-sidebar.svg with a real PNG/JPG of this same name (or update the README path)</text>
-</svg>

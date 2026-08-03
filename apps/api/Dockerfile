@@ -1,7 +1,7 @@
 # Build context is the repo root (npm workspaces monorepo).
 # docker build -f apps/api/Dockerfile .
 
-FROM node:22-bookworm-slim AS builder
+FROM node:26-bookworm-slim AS builder
 WORKDIR /app
 
 # Base image's bundled npm vendors its own deps (tar, sigstore, picomatch,
@@ -26,7 +26,7 @@ RUN npm run build --workspace apps/api
 # fails when everything happened to hoist to the root this time.
 RUN mkdir -p apps/api/node_modules
 
-FROM node:22-bookworm-slim AS runtime
+FROM node:26-bookworm-slim AS runtime
 WORKDIR /app
 
 RUN npm install -g npm@latest

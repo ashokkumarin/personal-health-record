@@ -16,10 +16,10 @@ The goal of this project is to make health records easier to manage by keeping p
 
 | | |
 |---|---|
-| ![Login screen](docs/screenshots/login.svg) | ![Timeline view](docs/screenshots/timeline.svg) |
-| ![Upload flow](docs/screenshots/upload.svg) | ![Family sidebar](docs/screenshots/family-sidebar.svg) |
+| ![Login screen](docs/screenshots/login.png) | ![Timeline view](docs/screenshots/timeline.png) |
+| ![Upload flow](docs/screenshots/upload.png) | ![Family sidebar](docs/screenshots/family-sidebar.png) |
 
-<img src="docs/screenshots/mobile-timeline.svg" alt="Mobile app timeline" width="240" />
+<img src="docs/screenshots/mobile-timeline.png" alt="Mobile app timeline" width="240" />
 
 ## Project goal
 

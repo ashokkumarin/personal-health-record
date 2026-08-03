@@ -14,17 +14,21 @@ config.resolver.nodeModulesPaths = [
   path.resolve(workspaceRoot, "node_modules"),
 ];
 
-// react-native itself gets hoisted to the workspace root (nothing else in
-// the monorepo depends on it), but its own peer "react" doesn't — apps/web
-// needs React 18, so apps/mobile keeps its own nested react@19 alongside it.
-// Metro's default per-file nearest-node_modules walk means react-native's
-// (root-hoisted) files find the root's React 18 instead of the sibling
-// React 19 next to them, splitting the bundle across two React instances
-// ("ReactSharedInternals.S is undefined" — React 19's internals shape
-// applied to a React 18 module). Force these to one canonical copy.
+// react-native and its peer "react" both need to resolve to the exact same
+// copy everywhere in the bundle, or you get a split-instance crash
+// ("ReactSharedInternals.S is undefined" — one React version's internals
+// shape applied to another's module). Which physical directory that is
+// (hoisted to the workspace root, or nested under apps/mobile) depends on
+// npm's hoisting outcome for the current dependency graph, which can shift
+// between installs (see root package.json's "overrides" and
+// docs/deployment.md#dependency-hoisting-across-two-major-react-versions) —
+// so resolve both dynamically via require.resolve() instead of a hardcoded
+// path, which silently breaks the instant hoisting changes again.
 config.resolver.extraNodeModules = {
-  react: path.resolve(projectRoot, "node_modules/react"),
-  "react-native": path.resolve(workspaceRoot, "node_modules/react-native"),
+  react: path.dirname(require.resolve("react/package.json", { paths: [projectRoot, workspaceRoot] })),
+  "react-native": path.dirname(
+    require.resolve("react-native/package.json", { paths: [projectRoot, workspaceRoot] })
+  ),
 };
 
 // @phr/shared is `"type": "module"` with only a `main` field — no dual

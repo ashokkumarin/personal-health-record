@@ -1,0 +1,10 @@
+# Trivy vulnerability allowlist for released container images.
+# Used by .github/workflows/release.yml's image-scan step.
+#
+# Add an entry only for a CVE that's been triaged and judged not exploitable
+# in this image's context (e.g. affected code path is unused). One CVE ID
+# per line, with a comment explaining why it's suppressed and a date so
+# stale entries can be revisited.
+#
+# Example:
+# CVE-2024-00000 # not reachable — affected codepath unused in this image, reviewed 2026-08-02

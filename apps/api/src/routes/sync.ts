@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import rateLimit from "@fastify/rate-limit";
 import type { AuditSource } from "@prisma/client";
 import { syncPushRequestSchema, type SyncMutationStatus } from "@phr/shared";
 import { prisma } from "../db.js";
@@ -35,17 +36,16 @@ async function canManageRecord(
 
 export async function syncRoutes(app: FastifyInstance) {
   app.addHook("preHandler", authenticate);
-  app.addHook("preHandler", async (request) => {
-    if (!request.routerPath?.startsWith("/sync/")) return;
 
-    request.routeOptions.config = {
-      ...(request.routeOptions.config ?? {}),
-      rateLimit: {
-        max: 60,
-        timeWindow: "1 minute",
-        keyGenerator: () => request.userId ?? request.ip,
-      },
-    };
+  // Mobile devices call these on every sync-interval tick (see
+  // apps/mobile/lib/sync/syncContext.tsx) — a misconfigured or malicious
+  // client hammering /sync/push in a loop could otherwise generate unbounded
+  // write load. Keyed on the authenticated user rather than IP, since
+  // multiple family members' devices can share a NAT'd IP.
+  await app.register(rateLimit, {
+    max: 60,
+    timeWindow: "1 minute",
+    keyGenerator: (request) => request.userId ?? request.ip,
   });
 
   app.get<{ Querystring: { since?: string; deviceId: string } }>(

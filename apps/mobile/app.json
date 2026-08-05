@@ -8,7 +8,10 @@
     "ios": {
       "supportsTablet": true
     },
-    "android": {},
+    "android": {
+      "package": "com.phr.app",
+      "versionCode": 1
+    },
     "web": {
       "bundler": "metro"
     },

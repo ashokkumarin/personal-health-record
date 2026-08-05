@@ -22,7 +22,15 @@ model User {
   defaultTimelineView String?
   dateOfBirth  DateTime?
   address      String?
+  // System-level admin flag — distinct from FamilyRole (per-family
+  // OWNER/ADMIN/MEMBER). Seeded from ADMIN_EMAIL/ADMIN_PASSWORD on startup.
+  isAdmin      Boolean  @default(false)
+  // Set when an admin creates the account or resets its password; cleared
+  // the next time the user successfully changes their own password.
+  mustChangePassword Boolean @default(false)
   createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  deletedAt    DateTime?
 
   ownedFamilies             Family[]           @relation("FamilyOwner")
   familyMemberships         FamilyMembership[]
@@ -30,6 +38,10 @@ model User {
   approvalRequestsReceived  ApprovalRequest[]  @relation("ApprovalTarget")
   approvalRequestsRequested ApprovalRequest[]  @relation("ApprovalRequestedBy")
   uploadedRecords           MedicalRecord[]
+  auditLogs                 AuditLog[]
+  devices                   Device[]
+  passwordResetRequests     PasswordResetRequest[] @relation("PasswordResetRequester")
+  resolvedPasswordResets    PasswordResetRequest[] @relation("PasswordResetResolver")
 }
 
 enum FamilyRole {
@@ -59,6 +71,7 @@ model Family {
   name      String
   ownerId   String
   createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   deletedAt DateTime?
 
   owner       User               @relation("FamilyOwner", fields: [ownerId], references: [id])
@@ -74,6 +87,13 @@ model FamilyMembership {
   status    MembershipStatus @default(ACTIVE)
   relation  String?
   createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  // Soft delete so a sync client can be told a membership went away (see
+  // AuditLog/Device). Note this means re-adding a previously-removed user to
+  // the same family will hit the unique constraint below — same limitation
+  // Family's name uniqueness had before its partial-index fix; not solved
+  // here since removing-then-re-adding the same member is a rare edge case.
+  deletedAt DateTime?
 
   family Family @relation(fields: [familyId], references: [id])
   user   User   @relation(fields: [userId], references: [id])
@@ -90,6 +110,8 @@ model PatientProfile {
   gender          String?
   visibleToFamily Boolean   @default(false)
   createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  deletedAt       DateTime?
 
   family           Family            @relation(fields: [familyId], references: [id])
   linkedUser       User?             @relation(fields: [linkedUserId], references: [id])
@@ -130,7 +152,82 @@ model MedicalRecord {
   capturedAt    DateTime?
   uploadedAt    DateTime   @default(now())
   createdById   String
+  updatedAt     DateTime   @updatedAt
+  deletedAt     DateTime?
 
   patient   PatientProfile @relation(fields: [patientId], references: [id])
   createdBy User           @relation(fields: [createdById], references: [id])
+}
+
+enum AuditActorType {
+  USER
+  DEVICE
+}
+
+enum AuditEventType {
+  LOGIN
+  LOGOUT
+  REGISTER
+  UPLOAD
+  EDIT
+  DELETE
+  ADMIN_CREATE_USER
+  ADMIN_UPDATE_USER
+  ADMIN_DELETE_USER
+  ADMIN_RESET_PASSWORD
+  PASSWORD_RESET_REQUESTED
+  PASSWORD_CHANGED
+}
+
+enum AuditSource {
+  WEB
+  MOBILE
+  API
+}
+
+model AuditLog {
+  id         String         @id @default(uuid())
+  actorType  AuditActorType
+  userId     String?
+  deviceId   String?
+  eventType  AuditEventType
+  entityType String?
+  entityId   String?
+  metadata   Json?
+  source     AuditSource
+  // Client-generated id for mobile-originated entries so a retried
+  // /audit/sync batch (Phase 4) can be applied idempotently; null for
+  // entries the server produces directly (login/logout/global hook).
+  clientId   String?        @unique
+  createdAt  DateTime       @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+}
+
+enum PasswordResetStatus {
+  PENDING
+  RESOLVED
+}
+
+model PasswordResetRequest {
+  id           String              @id @default(uuid())
+  userId       String
+  status       PasswordResetStatus @default(PENDING)
+  createdAt    DateTime            @default(now())
+  resolvedAt   DateTime?
+  resolvedById String?
+
+  user       User  @relation("PasswordResetRequester", fields: [userId], references: [id])
+  resolvedBy User? @relation("PasswordResetResolver", fields: [resolvedById], references: [id])
+}
+
+model Device {
+  id           String    @id @default(uuid())
+  userId       String
+  installId    String    @unique
+  label        String?
+  lastSyncedAt DateTime?
+  createdAt    DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
 }

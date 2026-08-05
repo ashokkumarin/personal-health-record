@@ -13,7 +13,10 @@ Fastify instance (app.ts)
  ├─ familiesRoutes         ─┐
  ├─ approvalsRoutes         │ each registers its own
  ├─ recordsRoutes           │ authenticate preHandler hook
- ├─ usersRoutes            ─┘ (see below)
+ ├─ usersRoutes             │ (see below)
+ ├─ syncRoutes              │
+ ├─ auditSyncRoutes        ─┘
+ ├─ adminRoutes            (authenticate + requireAdmin — see below)
  └─ filesRoutes            (public — signature-gated instead)
 ```
 
@@ -41,6 +44,25 @@ Tokens are issued by `signToken(user)` in `auth-utils.ts`:
 **There is no refresh-token flow** — a client just prompts re-login once a
 token expires. Passwords are hashed with `bcrypt` (cost factor 10) on register
 and re-verified on login/password-change; the hash never leaves `auth-utils.ts`.
+
+### Admin (`plugins/requireAdmin.ts`)
+
+Stacked *after* `authenticate` on `adminRoutes` (`app.addHook("preHandler",
+authenticate)` then `app.addHook("preHandler", requireAdmin)` — both hooks run
+in registration order). Unlike the JWT-only `authenticate` check,
+`requireAdmin` does a **database** lookup of `User.isAdmin` on every request
+rather than trusting a claim baked into the token — deliberately, so revoking
+someone's admin access takes effect on their very next request instead of
+waiting out the token's 7-day expiry. Non-admins (and soft-deleted users) get
+`403 FORBIDDEN`.
+
+The first admin account is created idempotently on every boot by
+`bootstrap.ts`'s `ensureAdminUser()` (called from `server.ts`, **not** from
+`buildApp()` — so it never runs against the test database) from
+`ADMIN_EMAIL`/`ADMIN_PASSWORD`. See
+[API reference → Admin](../api-reference.md#admin) for the route list and
+[Data model → System admin](../data-model.md#system-admin-userisadmin-vs-familyrole)
+for the cascading-delete semantics.
 
 ## File storage
 
@@ -141,6 +163,7 @@ never fails the upload). This means:
 | `API_PUBLIC_URL` | `http://localhost:4000` | Base URL baked into every signed download URL — **must be how clients actually reach the API**, not an internal Docker hostname |
 | `API_PORT` | `4000` | Port the server binds (`0.0.0.0`) |
 | `WEB_ORIGIN` | `http://localhost:3000` | Allowed CORS origin for the web app (the `mozilla.github.io` pdf.js origin is hardcoded alongside it, not env-controlled) |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | *(unset — logs a warning and skips bootstrap)* | Account upserted with `isAdmin: true` on every boot — see Admin above |
 
 Set these for real in production — the `"dev-only-change-me"` fallback for
 `JWT_SECRET` is exactly what it sounds like.
@@ -148,5 +171,6 @@ Set these for real in production — the `"dev-only-change-me"` fallback for
 ## Boot sequence
 
 `server.ts`: `ensureMediaRoot()` (creates `MEDIA_ROOT` if missing — logs and
-continues rather than crashing on failure) → `buildApp().listen({ port, host:
+continues rather than crashing on failure) → `ensureAdminUser()` (logs and
+continues on failure, same reasoning) → `buildApp().listen({ port, host:
 "0.0.0.0" })`. A listen failure logs and calls `process.exit(1)`.

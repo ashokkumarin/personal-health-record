@@ -42,6 +42,7 @@ interpolates `${VAR}` from it.
 | `API_PORT` | api, web | Port the API listens on / that web's proxy targets |
 | `API_PUBLIC_URL` | api | Must be the URL **clients** (browsers, phones) can actually reach — not `http://api:4000` (that's Docker-internal only). Gets baked into every signed file URL. |
 | `WEB_ORIGIN` | api | CORS allow-list entry for the web app's public origin |
+| `ADMIN_EMAIL` / `ADMIN_PASSWORD` | api | Bootstrapped as an `isAdmin` account on every startup (idempotent). Unset skips bootstrap with a warning — no one can reach the admin panel until it's set. See [Backend service → Admin](apps/backend-service.md#admin-pluginsrequireadmints) |
 | `WEB_PORT` | web | Port `next start` binds to |
 | `NEXT_PUBLIC_API_URL` | web (build-time) | Only needed if you're *not* using the same-origin `/api` proxy — see [Web app guide](apps/web-app.md#the-apipath-proxy) |
 | `EXPO_PUBLIC_API_URL` | mobile (dev only, not part of the Docker stack) | Must be reachable from the *device*, e.g. the host machine's LAN IP, not `localhost` |

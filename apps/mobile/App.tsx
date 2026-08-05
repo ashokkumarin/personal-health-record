@@ -4,8 +4,11 @@ import { PaperProvider } from "react-native-paper";
 import { NavigationContainer } from "@react-navigation/native";
 import { StatusBar } from "expo-status-bar";
 import { AuthProvider, useAuth } from "./lib/authContext";
+import { ServerConfigProvider } from "./lib/serverConfigContext";
+import { SyncProvider } from "./lib/sync/syncContext";
 import { createAppTheme, DEFAULT_BANNER_COLOR } from "./lib/theme";
 import RootNavigator from "./navigation/RootNavigator";
+import "./lib/api";
 
 function Themed() {
   const { user } = useAuth();
@@ -25,9 +28,13 @@ export default function App() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaProvider>
-        <AuthProvider>
-          <Themed />
-        </AuthProvider>
+        <ServerConfigProvider>
+          <AuthProvider>
+            <SyncProvider>
+              <Themed />
+            </SyncProvider>
+          </AuthProvider>
+        </ServerConfigProvider>
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );

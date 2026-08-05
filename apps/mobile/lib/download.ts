@@ -13,13 +13,17 @@ function safeFileName(record: MedicalRecord): string {
   return `${base}.${fileExtension(record.fileType)}`;
 }
 
-// Downloads a record's file to local storage. Server list endpoints don't
-// include downloadUrl (only detail fetches do — see records.ts), and the URL
-// is signed/short-lived, so this always re-fetches the record first.
+// Records synced down locally already have a durable file:// copy (see
+// lib/data/records.ts / lib/documentStore.ts) — sharing that is instant and
+// works offline. Only records not yet downloaded (or, in standalone mode
+// with no recordsClient at all) fall back to a signed-URL re-fetch, which
+// requires a live connection.
 export async function downloadRecordFile(
-  recordsClient: RecordsClient,
+  recordsClient: RecordsClient | null,
   record: MedicalRecord
 ): Promise<string> {
+  if (record.downloadUrl?.startsWith("file://")) return record.downloadUrl;
+  if (!recordsClient) throw new Error("This document hasn't been downloaded yet and there's no server connection.");
   const full = await recordsClient.getRecord(record.id);
   if (!full.downloadUrl) throw new Error("No download URL for this record");
   const dest = new File(Paths.cache, safeFileName(record));
@@ -28,7 +32,7 @@ export async function downloadRecordFile(
 }
 
 export async function downloadAndShareRecord(
-  recordsClient: RecordsClient,
+  recordsClient: RecordsClient | null,
   record: MedicalRecord
 ): Promise<void> {
   const uri = await downloadRecordFile(recordsClient, record);
@@ -41,7 +45,7 @@ export async function downloadAndShareRecord(
 // walks the selection and hands each one to the OS share sheet in turn —
 // the user picks "Save to Files"/Photos for each before the next opens.
 export async function downloadAndShareAll(
-  recordsClient: RecordsClient,
+  recordsClient: RecordsClient | null,
   records: MedicalRecord[],
   onProgress?: (done: number, total: number) => void
 ): Promise<{ failed: MedicalRecord[] }> {

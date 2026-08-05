@@ -29,7 +29,7 @@ export async function approvalsRoutes(app: FastifyInstance) {
       });
       const patient = await tx.patientProfile.findUniqueOrThrow({ where: { id: approval.patientId } });
       await tx.familyMembership.updateMany({
-        where: { familyId: patient.familyId, userId: approval.targetUserId },
+        where: { familyId: patient.familyId, userId: approval.targetUserId, deletedAt: null },
         data: { status: "ACTIVE" },
       });
       return tx.approvalRequest.update({
@@ -52,8 +52,14 @@ export async function approvalsRoutes(app: FastifyInstance) {
 
     const updated = await prisma.$transaction(async (tx) => {
       const patient = await tx.patientProfile.findUniqueOrThrow({ where: { id: approval.patientId } });
-      await tx.familyMembership.deleteMany({
-        where: { familyId: patient.familyId, userId: approval.targetUserId, status: "PENDING" },
+      await tx.familyMembership.updateMany({
+        where: {
+          familyId: patient.familyId,
+          userId: approval.targetUserId,
+          status: "PENDING",
+          deletedAt: null,
+        },
+        data: { deletedAt: new Date() },
       });
       return tx.approvalRequest.update({
         where: { id: approval.id },

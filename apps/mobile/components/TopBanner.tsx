@@ -12,6 +12,7 @@ const TITLES: Record<string, string> = {
   Upload: "Upload a document",
   Settings: "Settings",
   Profile: "Profile",
+  Admin: "Admin",
   RecordViewer: "Document",
 };
 
@@ -66,6 +67,9 @@ export default function TopBanner({ navigation, route, options }: NativeStackHea
         <Divider />
         <Menu.Item leadingIcon="account" title="Profile" onPress={() => go("Profile")} />
         <Menu.Item leadingIcon="cog" title="Settings" onPress={() => go("Settings")} />
+        {user?.isAdmin && (
+          <Menu.Item leadingIcon="shield-account" title="Admin" onPress={() => go("Admin")} />
+        )}
         <Divider />
         <Menu.Item leadingIcon="logout" title="Log out" onPress={handleLogout} />
       </Menu>

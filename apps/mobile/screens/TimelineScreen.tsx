@@ -7,6 +7,8 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { MedicalRecord, PatientProfile } from "@phr/shared";
 import { useApi } from "../lib/useApi";
 import { useAuth } from "../lib/authContext";
+import { useSyncContext } from "../lib/sync/syncContext";
+import { getMyLocalTimeline } from "../lib/data/records";
 import { downloadAndShareAll } from "../lib/download";
 import RecordList, {
   sortRecordsForTimeline,
@@ -22,6 +24,7 @@ type Props = NativeStackScreenProps<AppStackParamList, "Timeline">;
 export default function TimelineScreen({ navigation }: Props) {
   const api = useApi();
   const { user } = useAuth();
+  const { sync } = useSyncContext();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
@@ -37,13 +40,16 @@ export default function TimelineScreen({ navigation }: Props) {
   const [downloading, setDownloading] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
+  // Reads always come from the local mirror — kept up to date in the
+  // background by SyncProvider (server mode) or written to directly
+  // (standalone mode). This is why the screen works identically offline.
   const load = useCallback(
     async (isRefresh = false) => {
-      if (!api) return;
+      if (!user) return;
       isRefresh ? setRefreshing(true) : setLoading(true);
       setError(null);
       try {
-        const timeline = await api.recordsClient.getMyTimeline();
+        const timeline = await getMyLocalTimeline(user.id);
         setPatient(timeline.patient);
         setRecords(timeline.records);
       } catch {
@@ -52,8 +58,14 @@ export default function TimelineScreen({ navigation }: Props) {
         isRefresh ? setRefreshing(false) : setLoading(false);
       }
     },
-    [api]
+    [user]
   );
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await sync();
+    await load(true);
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -81,11 +93,11 @@ export default function TimelineScreen({ navigation }: Props) {
   }
 
   async function handleBulkDownload() {
-    if (!api || selectedIds.size === 0) return;
+    if (selectedIds.size === 0) return;
     setDownloading(true);
     setDownloadError(null);
     const selected = records.filter((r) => selectedIds.has(r.id));
-    const { failed } = await downloadAndShareAll(api.recordsClient, selected);
+    const { failed } = await downloadAndShareAll(api?.recordsClient ?? null, selected);
     setDownloading(false);
     if (failed.length > 0) {
       setDownloadError(`Could not download ${failed.length} of ${selected.length} document(s).`);
@@ -105,7 +117,7 @@ export default function TimelineScreen({ navigation }: Props) {
     <View style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
       >
         {selectionMode ? (
           <SelectionBar

@@ -7,6 +7,9 @@ import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { MedicalRecord } from "@phr/shared";
 import { useApi } from "../lib/useApi";
 import { useAuth } from "../lib/authContext";
+import { useSyncContext } from "../lib/sync/syncContext";
+import { listLocalFamilyRecords } from "../lib/data/records";
+import { getLocalPatientName } from "../lib/data/families";
 import { downloadAndShareAll } from "../lib/download";
 import RecordList, {
   sortRecordsForTimeline,
@@ -23,6 +26,7 @@ export default function FamilyTimelineScreen({ route, navigation }: Props) {
   const { familyId, patientId } = route.params;
   const api = useApi();
   const { user } = useAuth();
+  const { sync } = useSyncContext();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
@@ -40,26 +44,27 @@ export default function FamilyTimelineScreen({ route, navigation }: Props) {
 
   const load = useCallback(
     async (isRefresh = false) => {
-      if (!api) return;
+      if (!user) return;
       isRefresh ? setRefreshing(true) : setLoading(true);
       setError(null);
       try {
-        const list = await api.recordsClient.listRecords(familyId, { patientId });
+        const list = await listLocalFamilyRecords(familyId, user.id, { patientId });
         setRecords(list);
-        if (patientId) {
-          const family = await api.familyClient.getFamily(familyId);
-          setPatientName(family.patients.find((p) => p.id === patientId)?.name ?? null);
-        } else {
-          setPatientName(null);
-        }
+        setPatientName(patientId ? await getLocalPatientName(patientId) : null);
       } catch {
         setError("Could not load the health record.");
       } finally {
         isRefresh ? setRefreshing(false) : setLoading(false);
       }
     },
-    [api, familyId, patientId]
+    [user, familyId, patientId]
   );
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    await sync();
+    await load(true);
+  }
 
   useFocusEffect(
     useCallback(() => {
@@ -91,11 +96,11 @@ export default function FamilyTimelineScreen({ route, navigation }: Props) {
   }
 
   async function handleBulkDownload() {
-    if (!api || selectedIds.size === 0) return;
+    if (selectedIds.size === 0) return;
     setDownloading(true);
     setDownloadError(null);
     const selected = records.filter((r) => selectedIds.has(r.id));
-    const { failed } = await downloadAndShareAll(api.recordsClient, selected);
+    const { failed } = await downloadAndShareAll(api?.recordsClient ?? null, selected);
     setDownloading(false);
     if (failed.length > 0) {
       setDownloadError(`Could not download ${failed.length} of ${selected.length} document(s).`);
@@ -115,7 +120,7 @@ export default function FamilyTimelineScreen({ route, navigation }: Props) {
     <View style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => load(true)} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
       >
         {selectionMode ? (
           <SelectionBar

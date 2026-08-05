@@ -6,8 +6,8 @@ import { hashPassword } from "../auth-utils.js";
 import { authenticate } from "../plugins/authenticate.js";
 
 async function requireManagerRole(familyId: string, userId: string) {
-  const membership = await prisma.familyMembership.findUnique({
-    where: { familyId_userId: { familyId, userId } },
+  const membership = await prisma.familyMembership.findFirst({
+    where: { familyId, userId, deletedAt: null },
   });
   if (!membership || (membership.role !== "OWNER" && membership.role !== "ADMIN")) {
     return null;
@@ -52,7 +52,7 @@ export async function familiesRoutes(app: FastifyInstance) {
 
   app.get("/families", async (request, reply) => {
     const memberships = await prisma.familyMembership.findMany({
-      where: { userId: request.userId },
+      where: { userId: request.userId, deletedAt: null },
       include: { family: true },
     });
     return reply.send(
@@ -63,8 +63,8 @@ export async function familiesRoutes(app: FastifyInstance) {
   });
 
   app.get<{ Params: { id: string } }>("/families/:id", async (request, reply) => {
-    const membership = await prisma.familyMembership.findUnique({
-      where: { familyId_userId: { familyId: request.params.id, userId: request.userId } },
+    const membership = await prisma.familyMembership.findFirst({
+      where: { familyId: request.params.id, userId: request.userId, deletedAt: null },
     });
     if (!membership) {
       return reply.code(403).send({ error: "FORBIDDEN" });
@@ -73,8 +73,11 @@ export async function familiesRoutes(app: FastifyInstance) {
     const family = await prisma.family.findFirst({
       where: { id: request.params.id, deletedAt: null },
       include: {
-        memberships: { include: { user: { select: { id: true, name: true, email: true } } } },
-        patients: true,
+        memberships: {
+          where: { deletedAt: null },
+          include: { user: { select: { id: true, name: true, email: true } } },
+        },
+        patients: { where: { deletedAt: null } },
       },
     });
     if (!family) {
@@ -150,8 +153,8 @@ export async function familiesRoutes(app: FastifyInstance) {
         return reply.code(404).send({ error: "NOT_FOUND" });
       }
 
-      const target = await prisma.familyMembership.findUnique({
-        where: { familyId_userId: { familyId: request.params.id, userId: request.body.userId } },
+      const target = await prisma.familyMembership.findFirst({
+        where: { familyId: request.params.id, userId: request.body.userId, deletedAt: null },
       });
       if (!target) {
         return reply.code(404).send({ error: "NOT_FOUND" });
@@ -241,8 +244,8 @@ export async function familiesRoutes(app: FastifyInstance) {
       return reply.code(409).send({ error: "ALREADY_LINKED" });
     }
 
-    const existingMembership = await prisma.familyMembership.findUnique({
-      where: { familyId_userId: { familyId, userId: existingUser.id } },
+    const existingMembership = await prisma.familyMembership.findFirst({
+      where: { familyId, userId: existingUser.id, deletedAt: null },
     });
     if (existingMembership && existingMembership.userId !== request.userId) {
       return reply.code(409).send({ error: "ALREADY_MEMBER" });
@@ -307,10 +310,8 @@ export async function familiesRoutes(app: FastifyInstance) {
         return reply.code(404).send({ error: "NOT_FOUND" });
       }
 
-      const target = await prisma.familyMembership.findUnique({
-        where: {
-          familyId_userId: { familyId: request.params.id, userId: request.params.userId },
-        },
+      const target = await prisma.familyMembership.findFirst({
+        where: { familyId: request.params.id, userId: request.params.userId, deletedAt: null },
       });
       if (!target) {
         return reply.code(404).send({ error: "NOT_FOUND" });
@@ -319,7 +320,10 @@ export async function familiesRoutes(app: FastifyInstance) {
         return reply.code(400).send({ error: "CANNOT_REMOVE_OWNER" });
       }
 
-      await prisma.familyMembership.delete({ where: { id: target.id } });
+      await prisma.familyMembership.update({
+        where: { id: target.id },
+        data: { deletedAt: new Date() },
+      });
 
       return reply.code(204).send();
     }

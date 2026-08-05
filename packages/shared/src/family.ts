@@ -45,6 +45,7 @@ export interface FamilyMembership {
   relation: string | null;
   user: Pick<User, "id" | "name" | "email">;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface PatientProfile {
@@ -56,6 +57,7 @@ export interface PatientProfile {
   gender: string | null;
   visibleToFamily: boolean;
   createdAt: string;
+  updatedAt: string;
 }
 
 export interface Family {
@@ -63,6 +65,7 @@ export interface Family {
   name: string;
   ownerId: string;
   createdAt: string;
+  updatedAt: string;
   myRole?: FamilyRole;
 }
 

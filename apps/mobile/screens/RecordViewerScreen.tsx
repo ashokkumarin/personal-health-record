@@ -4,6 +4,7 @@ import { ActivityIndicator, Appbar, Button, Icon, Snackbar, Text } from "react-n
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { MedicalRecord } from "@phr/shared";
 import { useApi } from "../lib/useApi";
+import { getLocalRecord } from "../lib/data/records";
 import { downloadAndShareRecord } from "../lib/download";
 import type { AppStackParamList } from "../navigation/types";
 
@@ -22,24 +23,26 @@ export default function RecordViewerScreen({ route, navigation }: Props) {
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!api) return;
     setRecord(null);
     setError(null);
-    api.recordsClient
-      .getRecord(recordId)
+    getLocalRecord(recordId)
       .then((r) => {
+        if (!r) {
+          setError("Could not load this document.");
+          return;
+        }
         setRecord(r);
         navigation.setOptions({ title: r.title });
       })
       .catch(() => setError("Could not load this document."));
-  }, [api, recordId, navigation]);
+  }, [recordId, navigation]);
 
   async function handleDownload() {
-    if (!api || !record || downloading) return;
+    if (!record || downloading) return;
     setDownloading(true);
     setDownloadError(null);
     try {
-      await downloadAndShareRecord(api.recordsClient, record);
+      await downloadAndShareRecord(api?.recordsClient ?? null, record);
     } catch {
       setDownloadError("Could not download this document.");
     } finally {

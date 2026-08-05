@@ -11,6 +11,7 @@ and file downloads (raw bytes).
 - [Approvals](#approvals)
 - [Records](#records)
 - [Files](#files)
+- [Admin](#admin)
 
 ## Conventions
 
@@ -73,6 +74,21 @@ Routes in `apps/api/src/routes/auth.ts`. **No authentication required.**
 No body, no auth check — purely a signal for the client to discard its token.
 Always `200 { ok: true }`.
 
+### `POST /auth/forgot-password`
+```ts
+// Request
+{ email: string }
+
+// 200 — always, regardless of whether the email matched an account
+{ ok: true }
+```
+There's no email/SMTP infrastructure in this app, so this doesn't send
+anything itself — it queues a `PasswordResetRequest` (`status: PENDING`) that
+an admin resolves via
+[`POST /admin/password-reset-requests/:id/resolve`](#admin). Always returns
+the same generic body so this endpoint can't be used to enumerate registered
+emails. `400 VALIDATION_ERROR` on schema failure.
+
 ---
 
 ## Users
@@ -92,6 +108,8 @@ interface User {
   address: string | null;
   createdAt: string;                   // ISO datetime
   avatarUrl: string | null;            // signed URL, 15 min TTL — see Files
+  isAdmin: boolean;                    // system-level admin — see Data model
+  mustChangePassword: boolean;         // set by admin create/reset — client must gate on this
 }
 ```
 
@@ -130,6 +148,9 @@ User
 |---|---|---|
 | 400 | `VALIDATION_ERROR` | schema failure |
 | 401 | `INVALID_CREDENTIALS` | `currentPassword` doesn't match |
+
+On success this also clears `mustChangePassword` — this is the route both the
+web `/change-password` page and mobile's forced-change screen call.
 
 ### `POST /users/me/photo`
 `multipart/form-data`, field name `file`. Accepts `image/jpeg` / `image/png`
@@ -416,3 +437,91 @@ You never construct these URLs by hand — they're returned as `downloadUrl` /
 `thumbnailUrl` on the relevant `User`/`MedicalRecord` responses above, always
 freshly signed with a **15-minute** TTL. Don't cache one past that window;
 re-fetch the owning resource instead.
+
+---
+
+## Admin
+
+Routes in `apps/api/src/routes/admin.ts`. **Auth required, and the caller
+must have `isAdmin: true`** (checked against the database on every request,
+not the JWT — see [Data model → System admin](data-model.md#system-admin-userisadmin-vs-familyrole)).
+Non-admins get `403 FORBIDDEN`.
+
+```ts
+interface AdminUser extends User {
+  families: { id: string; name: string; role: "OWNER" | "ADMIN" | "MEMBER" }[];
+}
+```
+
+### `GET /admin/users`
+`200 AdminUser[]` — every non-deleted user, oldest first.
+
+### `POST /admin/users`
+```ts
+{ name: string; email: string; password: string /* min 8 */;
+  forceChangePassword: boolean }
+→ 201 User
+```
+`forceChangePassword` sets the new account's `mustChangePassword` flag.
+`409 EMAIL_ALREADY_REGISTERED` if the email is taken; `400 VALIDATION_ERROR`
+on schema failure.
+
+### `PATCH /admin/users/:id`
+```ts
+{ name?: string; email?: string; phone?: string } → 200 User
+```
+`404 NOT_FOUND` if the user doesn't exist or is already deleted;
+`409 EMAIL_ALREADY_REGISTERED` on collision.
+
+### `POST /admin/users/:id/reset-password`
+```ts
+{ newPassword: string /* min 8 */ } → 200 { ok: true }
+```
+Sets the password and `mustChangePassword: true`. `404 NOT_FOUND` if the user
+doesn't exist.
+
+### `DELETE /admin/users/:id`
+Cascading soft delete — see
+[Data model → Admin-initiated user deletion](data-model.md#admin-initiated-user-deletion-is-a-soft-delete-and-only-ever-touches-the-targets-own-data)
+for exactly what's touched. `204` on success.
+
+| Status | Error code | When |
+|---|---|---|
+| 400 | `CANNOT_DELETE_SELF` | admin tries to delete their own account |
+| 400 | `CANNOT_REMOVE_OWNER` | target owns a family that still has other active members |
+| 404 | `NOT_FOUND` | user doesn't exist or is already deleted |
+
+### `GET /admin/audit-log`
+Query params (all optional): `userId`, `eventType`, `since`/`until` (ISO
+datetimes), `limit` (1–200, default 50), `cursor` (an entry `id` for
+pagination).
+```ts
+200 {
+  entries: (AuditLogEntry & {
+    user: { id: string; name: string; email: string } | null;
+  })[];
+  nextCursor: string | null;   // pass as `cursor` to fetch the next page
+}
+```
+Newest first. `400 VALIDATION_ERROR` on an invalid query.
+
+### `GET /admin/password-reset-requests`
+`200 PasswordResetRequest[]` — only `status: "PENDING"` requests, oldest
+first. This is the admin-facing "notification" feed for the forgot-password
+flow (see [`POST /auth/forgot-password`](#auth)).
+```ts
+interface PasswordResetRequest {
+  id: string; userId: string; status: "PENDING" | "RESOLVED";
+  createdAt: string; resolvedAt: string | null; resolvedById: string | null;
+  user: { id: string; name: string; email: string };
+}
+```
+
+### `POST /admin/password-reset-requests/:id/resolve`
+```ts
+{ newPassword: string /* min 8 */ } → 200 { ok: true }
+```
+Same effect as `reset-password` above (new password + `mustChangePassword:
+true`), and marks the request `RESOLVED` with `resolvedById` set to the
+calling admin. `404 NOT_FOUND` if the request isn't pending or the user no
+longer exists.

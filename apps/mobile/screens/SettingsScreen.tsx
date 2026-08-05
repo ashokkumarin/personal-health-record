@@ -3,8 +3,9 @@ import { ScrollView, StyleSheet } from "react-native";
 import { SegmentedButtons, Text } from "react-native-paper";
 import FamilyGroupsSection from "./settings/FamilyGroupsSection";
 import AppearanceSection from "./settings/AppearanceSection";
+import ServerSection from "./settings/ServerSection";
 
-type SectionId = "family-groups" | "appearance";
+type SectionId = "family-groups" | "appearance" | "server";
 
 export default function SettingsScreen() {
   const [section, setSection] = useState<SectionId>("family-groups");
@@ -20,10 +21,13 @@ export default function SettingsScreen() {
         buttons={[
           { value: "family-groups", label: "Family Groups", icon: "account-group" },
           { value: "appearance", label: "Appearance", icon: "palette" },
+          { value: "server", label: "Server", icon: "server" },
         ]}
         style={styles.tabs}
       />
-      {section === "family-groups" ? <FamilyGroupsSection /> : <AppearanceSection />}
+      {section === "family-groups" && <FamilyGroupsSection />}
+      {section === "appearance" && <AppearanceSection />}
+      {section === "server" && <ServerSection />}
     </ScrollView>
   );
 }

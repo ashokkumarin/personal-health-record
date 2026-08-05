@@ -9,7 +9,9 @@ there's no server-rendered data fetching; every page fetches from the API in
 | Route | File | Purpose |
 |---|---|---|
 | `/` | `app/page.tsx` | Logged out: marketing splash. Logged in: the caller's own timeline (`GET /me/timeline`), grid/list toggle, filters, upload dialog |
-| `/login`, `/register` | `app/login/`, `app/register/` | Auth forms |
+| `/login`, `/register` | `app/login/`, `app/register/` | Auth forms. Login also has a "Forgot password?" dialog — see below |
+| `/change-password` | `app/change-password/page.tsx` | Forced password change (see below) |
+| `/admin` | `app/admin/page.tsx` | Admin-only: Users, Password Reset Requests, Audit Log — see below |
 | `/families/[id]` | `app/families/[id]/page.tsx` | Family detail — members, add-member (3 modes), documents tab; rename/delete for managers |
 | `/families/[id]/timeline` | `app/families/[id]/timeline/page.tsx` | Family-scoped timeline, optional `?patientId=` (set when clicking a patient in the sidebar tree) |
 | `/profile` | `app/profile/page.tsx` | Personal info (incl. avatar upload) + change password |
@@ -38,6 +40,30 @@ Logout does a **hard navigation** (`window.location.href = "/login"`), not a
 router push — deliberately, so every page component remounts fresh rather than
 reusing state from the previous session (relevant if a different user logs in
 on the same device right after).
+
+## Admin, forced password change, and forgot password
+
+There's no email/SMTP infra in this app, so "forgot password" doesn't send
+anything — the dialog on `/login` calls `POST /auth/forgot-password`
+(always shows the same generic success message, to avoid leaking which
+emails are registered) and an admin resolves it from `/admin` → Password
+Reset Requests.
+
+`Nav.tsx`'s existing per-route-change effect (the one that re-reads the
+session on navigation) doubles as the forced-password-change gate: if
+`getCurrentUser()?.mustChangePassword` is true and the current path isn't
+already `/change-password`, it redirects there. This is the one place every
+authenticated page passes through, so it's the natural choke point — there's
+still no middleware-based route guarding (see Session & auth above).
+
+`/admin` is client-gated the same way every other page gates on
+`getToken()`, plus a check on `getCurrentUser()?.isAdmin` (redirects to `/`
+if false — this is **not** a security boundary, just UX; the real check is
+server-side `requireAdmin` on every `/admin/*` route). `Nav.tsx`'s avatar menu
+only shows the "Admin" item when `isAdmin` is true. See
+[API reference → Admin](../api-reference.md#admin) for the full route list
+the three `/admin` sections (`UsersSection`, `PasswordResetRequestsSection`,
+`AuditLogSection`) call through `adminClient()` (`lib/api.ts`).
 
 ## The `/api/[...path]` proxy
 

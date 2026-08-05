@@ -343,7 +343,8 @@ describe("DELETE /families/:id/members/:userId", () => {
     const membership = await prisma.familyMembership.findUnique({
       where: { familyId_userId: { familyId: family.id, userId: member.user.id } },
     });
-    expect(membership).toBeNull();
+    expect(membership).not.toBeNull();
+    expect(membership?.deletedAt).not.toBeNull();
 
     const patient = await prisma.patientProfile.findFirst({
       where: { familyId: family.id, linkedUserId: member.user.id },

@@ -536,7 +536,7 @@ async function addUnrelatedActiveMember(ownerToken: string, familyId: string) {
 describe("DELETE /records/:id", () => {
   it("the uploader can delete their own record", async () => {
     const owner = await registerUser(app);
-    const { patient } = await setupFamilyWithPatient(owner.token);
+    const { family, patient } = await setupFamilyWithPatient(owner.token);
     const record = await uploadRecord(owner.token, patient.id, { recordType: "NOTE", title: "Mine" });
 
     const res = await app.inject({
@@ -546,7 +546,16 @@ describe("DELETE /records/:id", () => {
     });
 
     expect(res.statusCode).toBe(204);
-    expect(await prisma.medicalRecord.findUnique({ where: { id: record.id } })).toBeNull();
+    const deleted = await prisma.medicalRecord.findUnique({ where: { id: record.id } });
+    expect(deleted).not.toBeNull();
+    expect(deleted?.deletedAt).not.toBeNull();
+
+    const timeline = await app.inject({
+      method: "GET",
+      url: `/families/${family.id}/records`,
+      headers: { authorization: `Bearer ${owner.token}` },
+    });
+    expect(timeline.json()).not.toContainEqual(expect.objectContaining({ id: record.id }));
   });
 
   it("family owner/admin can delete someone else's upload", async () => {

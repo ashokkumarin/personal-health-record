@@ -93,6 +93,7 @@ describe("POST /approval-requests/:id/reject", () => {
     const membership = await prisma.familyMembership.findFirst({
       where: { familyId: family.id, userId: target.user.id },
     });
-    expect(membership).toBeNull();
+    expect(membership).not.toBeNull();
+    expect(membership?.deletedAt).not.toBeNull();
   });
 });

@@ -17,15 +17,20 @@ App.tsx
                      └─ RootNavigator (navigation/RootNavigator.tsx)
 ```
 
-`RootNavigator` reads `useAuth()` and picks one of two navigators — there's no
+`RootNavigator` reads `useAuth()` and picks one of three things — there's no
 route-guarding per screen the way web does it:
 
 - **No token** → `AuthStack` (`Login`/`Register`, no header/chrome).
-- **Token present** → `AppDrawer` — a `createDrawerNavigator` whose single
-  screen is `AppStack` (a `createNativeStackNavigator` holding every real
-  screen: `Timeline`, `FamilyDetail`, `FamilyTimeline`, `Upload`, `Settings`,
-  `Profile`, `RecordViewer`). Every screen in `AppStack` shares one custom
-  header component, `TopBanner`.
+- **Token present, but `user.mustChangePassword`** → `ChangePasswordScreen`,
+  full-screen and blocking (no drawer/tabs) — set when an admin creates the
+  account or resets its password. Clearing the flag (a successful
+  `POST /users/me/password`) is the only way out; see
+  [API reference → Users](../api-reference.md#users).
+- **Token present, password OK** → `AppDrawer` — a `createDrawerNavigator`
+  whose single screen is `AppStack` (a `createNativeStackNavigator` holding
+  every real screen: `Timeline`, `FamilyDetail`, `FamilyTimeline`, `Upload`,
+  `Settings`, `Profile`, `RecordViewer`). Every screen in `AppStack` shares one
+  custom header component, `TopBanner`.
 
 **`Timeline` is the initial route** — matching web, your own linked-patient
 timeline (`GET /me/timeline`) is the landing screen after login, not a family
@@ -41,9 +46,9 @@ immediately so a relaunch always reflects the latest session without an extra
 network round-trip.
 
 `lib/useApi.ts` — a `useApi()` hook returns
-`{ familyClient, recordsClient, userClient }` from `@phr/shared`, memoized on
-the current token; every screen uses this instead of constructing clients
-by hand.
+`{ familyClient, recordsClient, userClient, adminClient }` from `@phr/shared`,
+memoized on the current token; every screen uses this instead of constructing
+clients by hand.
 
 ## Screens
 
@@ -55,6 +60,7 @@ by hand.
 | `UploadScreen` | `Upload` | the upload dialog on web's timeline pages |
 | `SettingsScreen` | `Settings` | `/settings` (Family Groups + Appearance) |
 | `ProfileScreen` | `Profile` | `/profile` |
+| `AdminScreen` | `Admin` | `/admin` — Users / Password Reset Requests / Audit Log tabs (`SegmentedButtons`, matching `SettingsScreen`'s tab pattern); only reachable from `TopBanner`'s avatar menu when `user.isAdmin` |
 | `RecordViewerScreen` | `RecordViewer` | the preview dialog in web's `RecordGrid` |
 
 ## `TopBanner` — the shared header
@@ -141,6 +147,18 @@ button too (`lib/download.ts`).
 `lib/download.ts` also exports `downloadAndShareAll()` for bulk downloads —
 `expo-sharing` only shares one file per call, so it walks the selection
 sequentially, one native share-sheet prompt per file.
+
+## Sync interval
+
+When connected to a server (`ServerConfigProvider`, `lib/serverConfigContext.tsx`),
+`SyncProvider` (`lib/sync/syncContext.tsx`) syncs on launch, on every
+background→foreground transition, **and** on a `setInterval` timer —
+`syncIntervalMinutes * 60_000` ms, default **15**, adjustable in Settings →
+Server between **1 and 180** minutes (`screens/settings/ServerSection.tsx`).
+The value is clamped and persisted the same way `serverUrl`/`mode` are (a
+`sync_interval_minutes` row in the `server_config` KV table). Standalone-mode
+devices have no server to sync with, so this setting only appears once
+connected.
 
 ## Native integrations
 

@@ -8,7 +8,9 @@ export type ApiErrorCode =
   | "ALREADY_MEMBER"
   | "ALREADY_LINKED"
   | "FAMILY_NAME_TAKEN"
-  | "CANNOT_REMOVE_OWNER";
+  | "CANNOT_REMOVE_OWNER"
+  | "CANNOT_DELETE_SELF"
+  | "CANNOT_MODIFY_ADMIN";
 
 export interface ApiError {
   error: ApiErrorCode;
@@ -27,6 +29,20 @@ export interface ApiRequestOptions {
   body?: unknown;
 }
 
+// Set once at app startup (web/mobile each call this with their own value) so
+// every request — without threading it through every client method — tells
+// the server's audit log which app an action came from. Left unset, the
+// server defaults to attributing the action to "API".
+let clientSource: "web" | "mobile" | undefined;
+
+export function setClientSource(source: "web" | "mobile") {
+  clientSource = source;
+}
+
+export function getClientSource(): "web" | "mobile" | undefined {
+  return clientSource;
+}
+
 export async function apiRequest<TResponse>(
   baseUrl: string,
   path: string,
@@ -37,6 +53,7 @@ export async function apiRequest<TResponse>(
   const headers: Record<string, string> = {};
   if (body !== undefined) headers["Content-Type"] = "application/json";
   if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (clientSource) headers["X-Client"] = clientSource;
 
   const res = await fetch(`${baseUrl}${path}`, {
     method,

@@ -21,6 +21,7 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import LogoutIcon from "@mui/icons-material/Logout";
 import MenuIcon from "@mui/icons-material/Menu";
 import NotificationsIcon from "@mui/icons-material/Notifications";
+import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
 import { getCurrentUser, clearSession, SESSION_CHANGED_EVENT } from "../../lib/auth";
 import { familyClient, APPROVALS_CHANGED_EVENT } from "../../lib/api";
 import Sidebar from "./Sidebar";
@@ -37,6 +38,7 @@ export default function Nav() {
   const avatarBorderColor = alpha(theme.palette.primary.contrastText, 0.5);
   const [userName, setUserName] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingApprovals, setPendingApprovals] = useState(0);
@@ -45,7 +47,15 @@ export default function Nav() {
     const user = getCurrentUser();
     setUserName(user?.name ?? null);
     setAvatarUrl(user?.avatarUrl ?? null);
-  }, []);
+    setIsAdmin(user?.isAdmin ?? false);
+    // A password an admin set (new user, admin reset, or a resolved forgot-
+    // password request) must be changed before anything else in the app is
+    // usable — this is the one place every authenticated route passes
+    // through, so it's the natural choke point for that gate.
+    if (user?.mustChangePassword && pathname !== "/change-password") {
+      router.replace("/change-password");
+    }
+  }, [pathname, router]);
 
   // Nav lives in the root layout and never remounts on client-side
   // navigation, so re-read the stored session on every route change —
@@ -151,6 +161,14 @@ export default function Nav() {
                 </ListItemIcon>
                 Settings
               </MenuItem>
+              {isAdmin && (
+                <MenuItem onClick={() => go("/admin")}>
+                  <ListItemIcon>
+                    <AdminPanelSettingsIcon fontSize="small" />
+                  </ListItemIcon>
+                  Admin
+                </MenuItem>
+              )}
               <Divider />
               <MenuItem onClick={handleLogout}>
                 <ListItemIcon>

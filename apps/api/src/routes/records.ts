@@ -4,6 +4,7 @@ import multipart from "@fastify/multipart";
 import { updateRecordFieldsSchema } from "@phr/shared";
 import { prisma } from "../db.js";
 import { authenticate } from "../plugins/authenticate.js";
+import { recordAudit, sourceFromRequest } from "../audit.js";
 import { uploadObject, getSignedDownloadUrl, deleteObject } from "../storage.js";
 import { extractText } from "../ocr.js";
 import { generateThumbnail } from "../thumbnail.js";
@@ -19,15 +20,15 @@ function fieldValue(field: unknown): string | undefined {
 }
 
 async function isFamilyMember(familyId: string, userId: string) {
-  const membership = await prisma.familyMembership.findUnique({
-    where: { familyId_userId: { familyId, userId } },
+  const membership = await prisma.familyMembership.findFirst({
+    where: { familyId, userId, deletedAt: null },
   });
   return membership !== null;
 }
 
 async function isFamilyManager(familyId: string, userId: string) {
-  const membership = await prisma.familyMembership.findUnique({
-    where: { familyId_userId: { familyId, userId } },
+  const membership = await prisma.familyMembership.findFirst({
+    where: { familyId, userId, deletedAt: null },
   });
   return membership !== null && (membership.role === "OWNER" || membership.role === "ADMIN");
 }
@@ -85,8 +86,8 @@ export async function recordsRoutes(app: FastifyInstance) {
     instance.post<{ Params: { patientId: string } }>(
       "/patients/:patientId/records",
       async (request, reply) => {
-        const patient = await prisma.patientProfile.findUnique({
-          where: { id: request.params.patientId },
+        const patient = await prisma.patientProfile.findFirst({
+          where: { id: request.params.patientId, deletedAt: null },
         });
         if (!patient) {
           return reply.code(404).send({ error: "NOT_FOUND" });
@@ -135,13 +136,23 @@ export async function recordsRoutes(app: FastifyInstance) {
           })
           .catch(() => {});
 
+        await recordAudit({
+          actorType: "USER",
+          userId: request.userId,
+          eventType: "UPLOAD",
+          entityType: "record",
+          entityId: record.id,
+          metadata: { patientId: patient.id, title: record.title, recordType: record.recordType },
+          source: sourceFromRequest(request),
+        });
+
         return reply.code(201).send(await withThumbnailUrl(record));
       }
     );
 
     instance.put<{ Params: { id: string } }>("/records/:id/file", async (request, reply) => {
-      const record = await prisma.medicalRecord.findUnique({
-        where: { id: request.params.id },
+      const record = await prisma.medicalRecord.findFirst({
+        where: { id: request.params.id, deletedAt: null },
         include: { patient: true },
       });
       if (!record) {
@@ -186,20 +197,30 @@ export async function recordsRoutes(app: FastifyInstance) {
         })
         .catch(() => {});
 
+      await recordAudit({
+        actorType: "USER",
+        userId: request.userId,
+        eventType: "EDIT",
+        entityType: "record",
+        entityId: record.id,
+        metadata: { title: record.title, replacedFile: true },
+        source: sourceFromRequest(request),
+      });
+
       return reply.send(await withThumbnailUrl(updated));
     });
   });
 
   app.get("/me/timeline", async (request, reply) => {
-    const patient = await prisma.patientProfile.findUnique({
-      where: { linkedUserId: request.userId },
+    const patient = await prisma.patientProfile.findFirst({
+      where: { linkedUserId: request.userId, deletedAt: null },
     });
     if (!patient) {
       return reply.send({ patient: null, records: [] });
     }
 
     const records = await prisma.medicalRecord.findMany({
-      where: { patientId: patient.id },
+      where: { patientId: patient.id, deletedAt: null },
       orderBy: [{ capturedAt: { sort: "desc", nulls: "last" } }, { uploadedAt: "desc" }],
     });
 
@@ -207,8 +228,8 @@ export async function recordsRoutes(app: FastifyInstance) {
   });
 
   app.get<{ Params: { id: string } }>("/records/:id", async (request, reply) => {
-    const record = await prisma.medicalRecord.findUnique({
-      where: { id: request.params.id },
+    const record = await prisma.medicalRecord.findFirst({
+      where: { id: request.params.id, deletedAt: null },
       include: { patient: true },
     });
     if (!record) {
@@ -240,7 +261,7 @@ export async function recordsRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: "FORBIDDEN" });
     }
 
-    const patients = await prisma.patientProfile.findMany({ where: { familyId } });
+    const patients = await prisma.patientProfile.findMany({ where: { familyId, deletedAt: null } });
     const patientById = new Map(patients.map((p) => [p.id, p]));
 
     let visiblePatientIds = patients
@@ -263,6 +284,7 @@ export async function recordsRoutes(app: FastifyInstance) {
     const records = await prisma.medicalRecord.findMany({
       where: {
         patientId: { in: visiblePatientIds },
+        deletedAt: null,
         ...(recordType ? { recordType: recordType as never } : {}),
         ...(dateFrom || dateTo ? { capturedAt: capturedAtFilter } : {}),
         ...(q
@@ -283,7 +305,9 @@ export async function recordsRoutes(app: FastifyInstance) {
   app.patch<{ Params: { id: string }; Body: { visibleToFamily: boolean } }>(
     "/patients/:id/visibility",
     async (request, reply) => {
-      const patient = await prisma.patientProfile.findUnique({ where: { id: request.params.id } });
+      const patient = await prisma.patientProfile.findFirst({
+        where: { id: request.params.id, deletedAt: null },
+      });
       if (!patient) {
         return reply.code(404).send({ error: "NOT_FOUND" });
       }
@@ -301,8 +325,8 @@ export async function recordsRoutes(app: FastifyInstance) {
   );
 
   app.patch<{ Params: { id: string } }>("/records/:id", async (request, reply) => {
-    const record = await prisma.medicalRecord.findUnique({
-      where: { id: request.params.id },
+    const record = await prisma.medicalRecord.findFirst({
+      where: { id: request.params.id, deletedAt: null },
       include: { patient: true },
     });
     if (!record) {
@@ -329,12 +353,22 @@ export async function recordsRoutes(app: FastifyInstance) {
       },
     });
 
+    await recordAudit({
+      actorType: "USER",
+      userId: request.userId,
+      eventType: "EDIT",
+      entityType: "record",
+      entityId: record.id,
+      metadata: { title: updated.title, fields: Object.keys(parsed.data) },
+      source: sourceFromRequest(request),
+    });
+
     return reply.send(await withThumbnailUrl(updated));
   });
 
   app.delete<{ Params: { id: string } }>("/records/:id", async (request, reply) => {
-    const record = await prisma.medicalRecord.findUnique({
-      where: { id: request.params.id },
+    const record = await prisma.medicalRecord.findFirst({
+      where: { id: request.params.id, deletedAt: null },
       include: { patient: true },
     });
     if (!record) {
@@ -344,9 +378,24 @@ export async function recordsRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: "FORBIDDEN" });
     }
 
-    await prisma.medicalRecord.delete({ where: { id: record.id } });
-    await deleteObject(record.filePath).catch(() => {});
-    if (record.thumbnailPath) await deleteObject(record.thumbnailPath).catch(() => {});
+    // Soft delete: a sync client needs a tombstone to learn this record is
+    // gone (see AuditLog/Device, Phase 4 sync). Storage blobs are left in
+    // place for now — immediate deletion would 404 a signed URL a client
+    // fetches mid-sync; cleanup of orphaned blobs is a separate concern.
+    await prisma.medicalRecord.update({
+      where: { id: record.id },
+      data: { deletedAt: new Date() },
+    });
+
+    await recordAudit({
+      actorType: "USER",
+      userId: request.userId,
+      eventType: "DELETE",
+      entityType: "record",
+      entityId: record.id,
+      metadata: { title: record.title, patientId: record.patientId },
+      source: sourceFromRequest(request),
+    });
 
     return reply.code(204).send();
   });

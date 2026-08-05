@@ -4,8 +4,11 @@ import { Button, SegmentedButtons, Text, TextInput } from "react-native-paper";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
-import { recordTypes, recordTypeLabels, type FamilyDetail, type RecordType } from "@phr/shared";
-import { useApi } from "../lib/useApi";
+import { recordTypes, recordTypeLabels, type RecordType } from "@phr/shared";
+import { useAuth } from "../lib/authContext";
+import { createLocalRecord } from "../lib/data/records";
+import { listLocalPatientsForFamily, type LocalPatientSummary } from "../lib/data/families";
+import { recordLocalAuditEvent } from "../lib/audit/local";
 import type { AppStackParamList } from "../navigation/types";
 
 type Props = NativeStackScreenProps<AppStackParamList, "Upload">;
@@ -14,8 +17,8 @@ type PickedFile = { uri: string; name: string; type: string };
 
 export default function UploadScreen({ route, navigation }: Props) {
   const { familyId, patientId } = route.params;
-  const api = useApi();
-  const [family, setFamily] = useState<FamilyDetail | null>(null);
+  const { user } = useAuth();
+  const [patients, setPatients] = useState<LocalPatientSummary[]>([]);
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(patientId ?? null);
   const [recordType, setRecordType] = useState<RecordType>("PRESCRIPTION");
   const [title, setTitle] = useState("");
@@ -24,9 +27,11 @@ export default function UploadScreen({ route, navigation }: Props) {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!api) return;
-    api.familyClient.getFamily(familyId).then(setFamily).catch(() => setError("Could not load patients."));
-  }, [api, familyId]);
+    if (patientId) return;
+    listLocalPatientsForFamily(familyId)
+      .then(setPatients)
+      .catch(() => setError("Could not load patients."));
+  }, [familyId, patientId]);
 
   async function pickImage() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -49,17 +54,32 @@ export default function UploadScreen({ route, navigation }: Props) {
   }
 
   async function handleUpload() {
-    if (!api || !selectedPatientId || !pickedFile || !title.trim()) {
+    if (!user || !selectedPatientId || !pickedFile || !title.trim()) {
       setError("Choose a patient, a file, and a title.");
       return;
     }
     setError(null);
     setSubmitting(true);
     try {
-      await api.recordsClient.uploadRecord(selectedPatientId, { recordType, title }, pickedFile);
+      // Always written locally first — works identically online or offline.
+      // If a server is configured, SyncProvider picks up the queued mutation
+      // (and the file itself) on its next run; see lib/sync/syncEngine.ts.
+      const record = await createLocalRecord(
+        user.id,
+        selectedPatientId,
+        { recordType, title },
+        { uri: pickedFile.uri, type: pickedFile.type }
+      );
+      await recordLocalAuditEvent({
+        actorType: "USER",
+        eventType: "UPLOAD",
+        entityType: "record",
+        entityId: record.id,
+        metadata: { patientId: selectedPatientId },
+      });
       navigation.goBack();
     } catch {
-      setError("Could not upload this document.");
+      setError("Could not save this document.");
     } finally {
       setSubmitting(false);
     }
@@ -67,7 +87,7 @@ export default function UploadScreen({ route, navigation }: Props) {
 
   return (
     <ScrollView contentContainerStyle={styles.content}>
-      {!patientId && family && (
+      {!patientId && patients.length > 0 && (
         <>
           <Text variant="titleMedium" style={styles.label}>
             Patient
@@ -75,7 +95,7 @@ export default function UploadScreen({ route, navigation }: Props) {
           <SegmentedButtons
             value={selectedPatientId ?? ""}
             onValueChange={setSelectedPatientId}
-            buttons={family.patients.map((p) => ({ value: p.id, label: p.name }))}
+            buttons={patients.map((p) => ({ value: p.id, label: p.name }))}
             style={styles.field}
           />
         </>

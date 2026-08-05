@@ -36,6 +36,8 @@ This project aims to provide a simple and trustworthy way to keep personal and f
 - Preview, edit, replace, and delete of uploaded records
 - Privacy controls so records remain private by default
 - Web app and mobile app clients
+- Admin panel: user management, audit log viewer, and admin-driven password resets
+- Configurable mobile background sync interval (1–180 minutes)
 
 ## Architecture
 

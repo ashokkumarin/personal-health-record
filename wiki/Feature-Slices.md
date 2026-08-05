@@ -22,5 +22,6 @@ Delivered after user feedback on the mobile app:
 11. [Slice 11 — Document Viewing, Swipe Navigation & Download](Slice-11-Document-Viewing-and-Download)
 12. [Slice 12 — Bulk Selection & Download](Slice-12-Bulk-Selection-and-Download)
 13. [Slice 13 — Timeline Sorting](Slice-13-Timeline-Sorting)
+14. [Slice 14 — Admin Panel, Password Reset Workflow, and Mobile Sync Interval](Slice-14-Admin-Panel-and-Sync-Interval)
 
 No further slices are currently planned.

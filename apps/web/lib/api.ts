@@ -1,10 +1,19 @@
-import { createAuthClient, createFamilyClient, createRecordsClient, createUserClient } from "@phr/shared";
+import {
+  createAuthClient,
+  createFamilyClient,
+  createRecordsClient,
+  createUserClient,
+  createAdminClient,
+  setClientSource,
+} from "@phr/shared";
 import { getToken } from "./auth";
 
 // Relative path proxied to the API by app/api/[...path]/route.ts (see API_INTERNAL_URL
 // there) — the browser never needs to know the API's actual host/port. Override with
 // NEXT_PUBLIC_API_URL only if you need the browser to call the API directly.
 const API_URL = process.env.NEXT_PUBLIC_API_URL ?? "/api";
+
+setClientSource("web");
 
 export const authClient = createAuthClient(API_URL);
 
@@ -26,6 +35,10 @@ export function recordsClient() {
 
 export function userClient() {
   return createUserClient(API_URL, requireToken());
+}
+
+export function adminClient() {
+  return createAdminClient(API_URL, requireToken());
 }
 
 // Nav's pending-approvals badge is fetched once and doesn't otherwise know

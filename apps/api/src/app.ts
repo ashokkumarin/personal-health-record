@@ -6,6 +6,9 @@ import { approvalsRoutes } from "./routes/approvals.js";
 import { recordsRoutes } from "./routes/records.js";
 import { usersRoutes } from "./routes/users.js";
 import { filesRoutes } from "./routes/files.js";
+import { syncRoutes } from "./routes/sync.js";
+import { auditSyncRoutes } from "./routes/auditSync.js";
+import { adminRoutes } from "./routes/admin.js";
 
 export function buildApp() {
   const app = Fastify({ logger: false });
@@ -25,5 +28,9 @@ export function buildApp() {
   app.register(recordsRoutes);
   app.register(usersRoutes);
   app.register(filesRoutes);
+  app.register(syncRoutes);
+  app.register(auditSyncRoutes);
+  app.register(adminRoutes);
+
   return app;
 }

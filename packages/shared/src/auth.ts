@@ -31,10 +31,15 @@ export const changePasswordSchema = z.object({
   newPassword: z.string().min(8, "Password must be at least 8 characters"),
 });
 
+export const forgotPasswordSchema = z.object({
+  email: z.string().email("Enter a valid email address"),
+});
+
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type LoginInput = z.infer<typeof loginSchema>;
 export type UpdateProfileInput = z.infer<typeof updateProfileSchema>;
 export type ChangePasswordInput = z.infer<typeof changePasswordSchema>;
+export type ForgotPasswordInput = z.infer<typeof forgotPasswordSchema>;
 
 export interface User {
   id: string;
@@ -47,6 +52,8 @@ export interface User {
   defaultTimelineView?: "grid" | "list" | null;
   dateOfBirth?: string | null;
   address?: string | null;
+  isAdmin?: boolean;
+  mustChangePassword?: boolean;
 }
 
 export interface AuthResponse {
@@ -60,7 +67,9 @@ export function createAuthClient(baseUrl: string) {
       apiRequest<AuthResponse>(baseUrl, "/auth/register", { body: input }),
     login: (input: LoginInput) =>
       apiRequest<AuthResponse>(baseUrl, "/auth/login", { body: input }),
-    logout: () => apiRequest<{ ok: true }>(baseUrl, "/auth/logout", { body: {} }),
+    logout: (token: string) => apiRequest<{ ok: true }>(baseUrl, "/auth/logout", { token, body: {} }),
+    forgotPassword: (input: ForgotPasswordInput) =>
+      apiRequest<{ ok: true }>(baseUrl, "/auth/forgot-password", { body: input }),
   };
 }
 

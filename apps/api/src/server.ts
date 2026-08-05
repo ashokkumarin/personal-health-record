@@ -1,5 +1,6 @@
 import { buildApp } from "./app.js";
 import { ensureMediaRoot } from "./storage.js";
+import { ensureAdminUser } from "./bootstrap.js";
 
 const port = Number(process.env.API_PORT ?? 4000);
 
@@ -15,6 +16,10 @@ if (!process.env.JWT_SECRET) {
 ensureMediaRoot()
   .catch((err) => {
     console.error("Failed to create media storage directory:", err);
+  })
+  .then(() => ensureAdminUser())
+  .catch((err) => {
+    console.error("Failed to bootstrap admin account:", err);
   })
   .then(() =>
     buildApp().listen({ port, host: "0.0.0.0" })

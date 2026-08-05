@@ -3,14 +3,16 @@ import { SafeAreaView, ScrollView, StyleSheet } from "react-native";
 import { Button, Text, TextInput } from "react-native-paper";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { loginSchema, ApiRequestError } from "@phr/shared";
-import { authClient } from "../lib/api";
+import { useAuthClient } from "../lib/useAuthClient";
 import { useAuth } from "../lib/authContext";
+import { recordLocalAuditEvent } from "../lib/audit/local";
 import type { AuthStackParamList } from "../navigation/types";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Login">;
 
 export default function LoginScreen({ navigation }: Props) {
   const { login } = useAuth();
+  const authClient = useAuthClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -23,10 +25,15 @@ export default function LoginScreen({ navigation }: Props) {
       setError(parsed.error.issues[0]?.message ?? "Invalid input");
       return;
     }
+    if (!authClient) {
+      setError("No server configured.");
+      return;
+    }
     setSubmitting(true);
     try {
       const { user, token } = await authClient.login(parsed.data);
       await login(user, token);
+      await recordLocalAuditEvent({ actorType: "USER", eventType: "LOGIN", entityType: "user", entityId: user.id });
     } catch (err) {
       if (err instanceof ApiRequestError && err.body.error === "INVALID_CREDENTIALS") {
         setError("Incorrect email or password.");

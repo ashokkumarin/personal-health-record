@@ -3,12 +3,14 @@ import { SafeAreaView, ScrollView, StyleSheet } from "react-native";
 import { Button, Text, TextInput } from "react-native-paper";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import { registerSchema, ApiRequestError } from "@phr/shared";
-import { authClient } from "../lib/api";
+import { useAuthClient } from "../lib/useAuthClient";
+import { recordLocalAuditEvent } from "../lib/audit/local";
 import type { AuthStackParamList } from "../navigation/types";
 
 type Props = NativeStackScreenProps<AuthStackParamList, "Register">;
 
 export default function RegisterScreen({ navigation }: Props) {
+  const authClient = useAuthClient();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,9 +25,14 @@ export default function RegisterScreen({ navigation }: Props) {
       setError(parsed.error.issues[0]?.message ?? "Invalid input");
       return;
     }
+    if (!authClient) {
+      setError("No server configured.");
+      return;
+    }
     setSubmitting(true);
     try {
-      await authClient.register(parsed.data);
+      const { user } = await authClient.register(parsed.data);
+      await recordLocalAuditEvent({ actorType: "USER", eventType: "REGISTER", entityType: "user", entityId: user.id });
       setSuccess(true);
       navigation.navigate("Login");
     } catch (err) {

@@ -13,6 +13,8 @@ erDiagram
   User ||--o{ MedicalRecord : "uploaded"
   User ||--o{ ApprovalRequest : "receives (target)"
   User ||--o{ ApprovalRequest : "sends (requestedBy)"
+  User ||--o{ PasswordResetRequest : "requests"
+  User ||--o{ PasswordResetRequest : "resolves (admin)"
 
   Family ||--o{ FamilyMembership : "has"
   Family ||--o{ PatientProfile : "contains"
@@ -31,7 +33,19 @@ erDiagram
     string defaultTimelineView
     datetime dateOfBirth
     string address
+    boolean isAdmin
+    boolean mustChangePassword
     datetime createdAt
+    datetime deletedAt "soft delete"
+  }
+
+  PasswordResetRequest {
+    string id PK
+    string userId FK
+    string status "PENDING | RESOLVED"
+    datetime createdAt
+    datetime resolvedAt
+    string resolvedById FK "nullable"
   }
 
   Family {
@@ -91,10 +105,11 @@ erDiagram
 ## Enums
 
 ```ts
-enum FamilyRole       { OWNER, ADMIN, MEMBER }
-enum MembershipStatus { ACTIVE, PENDING }
-enum ApprovalStatus   { PENDING, APPROVED, REJECTED }
-enum RecordType       { PRESCRIPTION, LAB_REPORT, PHARMACY_BILL, NOTE }
+enum FamilyRole          { OWNER, ADMIN, MEMBER }
+enum MembershipStatus    { ACTIVE, PENDING }
+enum ApprovalStatus      { PENDING, APPROVED, REJECTED }
+enum RecordType          { PRESCRIPTION, LAB_REPORT, PHARMACY_BILL, NOTE }
+enum PasswordResetStatus { PENDING, RESOLVED }
 ```
 
 ## Two constraints worth knowing before you touch the schema
@@ -116,6 +131,31 @@ be linked to **one** patient profile system-wide. This single field is what
 the `ALREADY_LINKED` check in `POST /families/:id/members` relies on (a plain
 `findUnique` on `linkedUserId`) — see
 [API reference → Families](API-Reference#families).
+
+## System admin (`User.isAdmin`) vs. `FamilyRole`
+
+`User.isAdmin` is a **system-level** flag, unrelated to the per-family
+`FamilyRole` (`OWNER`/`ADMIN`/`MEMBER`). An admin can manage every account in
+the system (see [API reference → Admin](API-Reference#admin)); a family
+`ADMIN` can only manage members of that one family. There's no tiering among
+system admins — any `isAdmin` user has full access.
+
+The first admin is bootstrapped from `ADMIN_EMAIL`/`ADMIN_PASSWORD` on every
+API startup (`apps/api/src/bootstrap.ts`, idempotent — see
+[Deployment](Deployment#environment-variables)). Additional admins can only
+be created directly in the database today — there's no "promote to system
+admin" API route.
+
+### Admin-initiated user deletion is a soft delete, and only ever touches the target's own data
+`DELETE /admin/users/:id` sets `User.deletedAt` (blocking future logins) and
+cascades to: the user's `FamilyMembership` rows (soft-deleted), their own
+linked `PatientProfile` and its `MedicalRecord`s (soft-deleted), and — only if
+they're the **sole** member of a family they own — that family itself. If they
+own a family that still has other active members, the whole delete is
+rejected with `CANNOT_REMOVE_OWNER` (same code family-membership removal uses)
+until an admin transfers or deletes that family first. Records the user
+uploaded for *other* patients in a shared family are left untouched — deleting
+an account doesn't erase family medical history someone else still needs.
 
 ## Authorization model
 

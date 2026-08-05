@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { apiRequest, ApiRequestError } from "./http.js";
+import { apiRequest, ApiRequestError, getClientSource } from "./http.js";
 import type { PatientProfile } from "./family.js";
 
 export type RecordType = "PRESCRIPTION" | "LAB_REPORT" | "PHARMACY_BILL" | "NOTE";
@@ -49,6 +49,7 @@ export interface MedicalRecord {
   capturedAt: string | null;
   uploadedAt: string;
   createdById: string;
+  updatedAt: string;
   downloadUrl?: string;
   thumbnailUrl?: string | null;
 }
@@ -93,9 +94,13 @@ async function multipartRequest<TResponse>(
     form.append("file", { uri: file.uri, name: file.name, type: file.type } as unknown as Blob);
   }
 
+  const source = getClientSource();
+  const headers: Record<string, string> = { Authorization: `Bearer ${token}` };
+  if (source) headers["X-Client"] = source;
+
   const res = await fetch(`${baseUrl}${path}`, {
     method,
-    headers: { Authorization: `Bearer ${token}` },
+    headers,
     body: form,
   });
 

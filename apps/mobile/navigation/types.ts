@@ -5,6 +5,7 @@ export type AppStackParamList = {
   Upload: { familyId: string; patientId?: string };
   Settings: undefined;
   Profile: undefined;
+  Admin: undefined;
   RecordViewer: { recordIds: string[]; index: number };
 };
 

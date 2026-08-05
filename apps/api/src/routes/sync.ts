@@ -35,6 +35,18 @@ async function canManageRecord(
 
 export async function syncRoutes(app: FastifyInstance) {
   app.addHook("preHandler", authenticate);
+  app.addHook("preHandler", async (request) => {
+    if (!request.routerPath?.startsWith("/sync/")) return;
+
+    request.routeOptions.config = {
+      ...(request.routeOptions.config ?? {}),
+      rateLimit: {
+        max: 60,
+        timeWindow: "1 minute",
+        keyGenerator: () => request.userId ?? request.ip,
+      },
+    };
+  });
 
   app.get<{ Querystring: { since?: string; deviceId: string } }>(
     "/sync/pull",

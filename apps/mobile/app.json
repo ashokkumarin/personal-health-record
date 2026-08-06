@@ -5,12 +5,20 @@
     "version": "0.0.1",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
+    "icon": "./assets/icon.png",
     "ios": {
       "supportsTablet": true
     },
     "android": {
       "package": "com.phr.app",
-      "versionCode": 1
+      "versionCode": 4,
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#00695c"
+      },
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro"
@@ -22,7 +30,20 @@
           "cameraPermission": "Allow PHR to use the camera to capture medical documents."
         }
       ],
-      "@react-native-community/datetimepicker"
-    ]
+      "@react-native-community/datetimepicker",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#00695c"
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "e16ac3ba-bdd4-490d-909d-a2abd082e57e"
+      }
+    }
   }
 }

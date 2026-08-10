@@ -18,11 +18,10 @@ import Divider from "@mui/material/Divider";
 import ListItemIcon from "@mui/material/ListItemIcon";
 import PersonIcon from "@mui/icons-material/Person";
 import SettingsIcon from "@mui/icons-material/Settings";
-import LogoutIcon from "@mui/icons-material/Logout";
 import MenuIcon from "@mui/icons-material/Menu";
 import NotificationsIcon from "@mui/icons-material/Notifications";
 import AdminPanelSettingsIcon from "@mui/icons-material/AdminPanelSettings";
-import { getCurrentUser, clearSession, SESSION_CHANGED_EVENT } from "../../lib/auth";
+import { getCurrentUser, SESSION_CHANGED_EVENT } from "../../lib/auth";
 import { familyClient, APPROVALS_CHANGED_EVENT } from "../../lib/api";
 import Sidebar from "./Sidebar";
 import LogoMark from "./LogoMark";
@@ -88,14 +87,6 @@ export default function Nav() {
   }, [refreshApprovals]);
 
   if (!userName) return null;
-
-  function handleLogout() {
-    setAnchorEl(null);
-    clearSession();
-    // Hard navigation, same reasoning as login: forces every page component
-    // to remount fresh rather than reusing stale state from this session.
-    window.location.href = "/login";
-  }
 
   function go(path: string) {
     setAnchorEl(null);
@@ -169,13 +160,6 @@ export default function Nav() {
                   Admin
                 </MenuItem>
               )}
-              <Divider />
-              <MenuItem onClick={handleLogout}>
-                <ListItemIcon>
-                  <LogoutIcon fontSize="small" />
-                </ListItemIcon>
-                Log out
-              </MenuItem>
             </Menu>
           </Stack>
         </Toolbar>

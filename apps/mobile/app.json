@@ -2,7 +2,7 @@
   "expo": {
     "name": "PHR",
     "slug": "phr-mobile",
-    "version": "0.0.3",
+    "version": "0.0.4",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "icon": "./assets/icon.png",
@@ -11,7 +11,7 @@
     },
     "android": {
       "package": "com.phr.app",
-      "versionCode": 6,
+      "versionCode": 7,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#00695c"

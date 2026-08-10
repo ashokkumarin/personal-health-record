@@ -18,8 +18,7 @@
       },
       "permissions": [
         "android.permission.RECORD_AUDIO"
-      ],
-      "usesCleartextTraffic": true
+      ]
     },
     "web": {
       "bundler": "metro"
@@ -38,6 +37,14 @@
           "image": "./assets/splash-icon.png",
           "resizeMode": "contain",
           "backgroundColor": "#00695c"
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
         }
       ]
     ],

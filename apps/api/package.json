@@ -14,7 +14,7 @@
   },
   "dependencies": {
     "@fastify/cors": "^10.1.0",
-    "@fastify/multipart": "^9.4.0",
+    "@fastify/multipart": "^10.1.0",
     "@fastify/rate-limit": "^11.2.0",
     "@phr/shared": "*",
     "@prisma/client": "^5.18.0",

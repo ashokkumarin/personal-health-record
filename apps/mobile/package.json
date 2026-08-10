@@ -8,6 +8,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
+    "version:bump": "node scripts/bump-version.js",
+    "build:production": "npm run version:bump && npx eas-cli build --platform android --profile production",
     "eas-build-post-install": "cd ../../packages/shared && npm run build"
   },
   "dependencies": {

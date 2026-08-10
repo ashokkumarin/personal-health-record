@@ -61,12 +61,6 @@ export default function ServerSection() {
     }
   }
 
-  async function handleGoOffline() {
-    setBusy(true);
-    await serverConfig.setStandalone();
-    setBusy(false);
-  }
-
   if (serverConfig.mode === "standalone") {
     return (
       <View>
@@ -164,10 +158,6 @@ export default function ServerSection() {
         Switching servers re-downloads everything from the new one. Anything created here that
         hasn&apos;t synced to the current server yet will not carry over.
       </Text>
-
-      <Button mode="text" onPress={handleGoOffline} loading={busy} style={styles.field} textColor="#c62828">
-        Disconnect and use this device offline
-      </Button>
     </View>
   );
 }

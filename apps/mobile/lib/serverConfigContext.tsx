@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type ReactNode
 import * as Crypto from "expo-crypto";
 import { serverConfigKv, syncStateKv } from "./db/kv";
 import { CURSOR_KEY } from "./sync/syncEngine";
+import { resetLocalServerMirror } from "./db/reset";
 
 export type ServerMode = "server" | "standalone";
 
@@ -121,6 +122,11 @@ export function ServerConfigProvider({ children }: { children: ReactNode }) {
         setServerReachable(true);
       },
       async setStandalone() {
+        // Whatever's cached locally (families/members/documents) mirrors the
+        // server account being left behind, not the device's offline-only
+        // identity — clear it so offline mode starts from a clean slate
+        // instead of showing the previous account's family group.
+        await resetLocalServerMirror();
         await serverConfigKv.set(MODE_KEY, "standalone");
         await serverConfigKv.delete(URL_KEY);
         setServerUrlState(null);

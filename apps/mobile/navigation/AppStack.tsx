@@ -4,6 +4,7 @@ import TimelineScreen from "../screens/TimelineScreen";
 import FamilyDetailScreen from "../screens/FamilyDetailScreen";
 import FamilyTimelineScreen from "../screens/FamilyTimelineScreen";
 import UploadScreen from "../screens/UploadScreen";
+import AddFamilyMemberScreen from "../screens/AddFamilyMemberScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import AdminScreen from "../screens/AdminScreen";
@@ -22,6 +23,7 @@ export default function AppStack() {
       <Stack.Screen name="FamilyDetail" component={FamilyDetailScreen} />
       <Stack.Screen name="FamilyTimeline" component={FamilyTimelineScreen} />
       <Stack.Screen name="Upload" component={UploadScreen} />
+      <Stack.Screen name="AddFamilyMember" component={AddFamilyMemberScreen} />
       <Stack.Screen name="Settings" component={SettingsScreen} />
       <Stack.Screen name="Profile" component={ProfileScreen} />
       <Stack.Screen name="Admin" component={AdminScreen} />

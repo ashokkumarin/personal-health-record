@@ -82,4 +82,7 @@ export const MIGRATIONS: string[] = [
     synced INTEGER NOT NULL DEFAULT 0
   );
   `,
+  `
+  ALTER TABLE patients ADD COLUMN relation TEXT;
+  `,
 ];

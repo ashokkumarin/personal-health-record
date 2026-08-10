@@ -5,6 +5,7 @@ import { createAuthClient, type User } from "@phr/shared";
 import { useServerConfig } from "./serverConfigContext";
 import { serverConfigKv } from "./db/kv";
 import { recordLocalAuditEvent } from "./audit/local";
+import { ensureDefaultLocalFamily } from "./data/families";
 
 const TOKEN_KEY = "phr_token";
 const USER_KEY = "phr_user";
@@ -50,7 +51,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (serverConfig.loading) return;
 
     if (serverConfig.mode === "standalone") {
-      loadOrCreateLocalUser().then((localUser) => {
+      loadOrCreateLocalUser().then(async (localUser) => {
+        await ensureDefaultLocalFamily(localUser.id, localUser.name);
         setUserState(localUser);
         setToken(STANDALONE_TOKEN);
         setLoading(false);

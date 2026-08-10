@@ -10,6 +10,7 @@ const TITLES: Record<string, string> = {
   FamilyDetail: "Family",
   FamilyTimeline: "Health Record",
   Upload: "Upload a document",
+  AddFamilyMember: "Add family member",
   Settings: "Settings",
   Profile: "Profile",
   Admin: "Admin",
@@ -17,7 +18,7 @@ const TITLES: Record<string, string> = {
 };
 
 export default function TopBanner({ navigation, route, options }: NativeStackHeaderProps) {
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
   const theme = useTheme();
   const [menuOpen, setMenuOpen] = useState(false);
   const title = options.title ?? TITLES[route.name] ?? "PHR";
@@ -25,11 +26,6 @@ export default function TopBanner({ navigation, route, options }: NativeStackHea
   function go(screen: keyof typeof TITLES) {
     setMenuOpen(false);
     navigation.navigate(screen as never);
-  }
-
-  function handleLogout() {
-    setMenuOpen(false);
-    logout();
   }
 
   return (
@@ -70,8 +66,6 @@ export default function TopBanner({ navigation, route, options }: NativeStackHea
         {user?.isAdmin && (
           <Menu.Item leadingIcon="shield-account" title="Admin" onPress={() => go("Admin")} />
         )}
-        <Divider />
-        <Menu.Item leadingIcon="logout" title="Log out" onPress={handleLogout} />
       </Menu>
     </Appbar.Header>
   );

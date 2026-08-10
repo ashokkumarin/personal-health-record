@@ -5,6 +5,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
 import type { FamilyDetail } from "@phr/shared";
 import { useApi } from "../lib/useApi";
+import { getLocalFamilyDetail } from "../lib/data/families";
 import type { AppStackParamList } from "../navigation/types";
 
 type Props = NativeStackScreenProps<AppStackParamList, "FamilyDetail">;
@@ -14,15 +15,33 @@ export default function FamilyDetailScreen({ route, navigation }: Props) {
   const api = useApi();
   const [family, setFamily] = useState<FamilyDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Local-only fallback (no server, or the live fetch below failed) — used to
+  // decide whether to show the offline "Add family member" action, since the
+  // fuller server-backed member-management flow isn't available here.
+  const [usingLocalFallback, setUsingLocalFallback] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
-      if (!api) return;
       setError(null);
+
+      if (!api) {
+        setUsingLocalFallback(true);
+        getLocalFamilyDetail(familyId)
+          .then((local) => (local ? setFamily(local) : setError("Could not load this family.")))
+          .catch(() => setError("Could not load this family."));
+        return;
+      }
+
+      setUsingLocalFallback(false);
       api.familyClient
         .getFamily(familyId)
         .then(setFamily)
-        .catch(() => setError("Could not load this family."));
+        .catch(() => {
+          setUsingLocalFallback(true);
+          getLocalFamilyDetail(familyId)
+            .then((local) => (local ? setFamily(local) : setError("Could not load this family.")))
+            .catch(() => setError("Could not load this family."));
+        });
     }, [api, familyId])
   );
 
@@ -85,6 +104,15 @@ export default function FamilyDetailScreen({ route, navigation }: Props) {
         >
           View Health Record
         </Button>
+        {usingLocalFallback && (
+          <Button
+            mode="outlined"
+            onPress={() => navigation.navigate("AddFamilyMember", { familyId: family.id })}
+            style={styles.button}
+          >
+            Add family member
+          </Button>
+        )}
       </View>
     </ScrollView>
   );

@@ -3,18 +3,46 @@ import { StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { DrawerContentComponentProps } from "@react-navigation/drawer";
 import { DrawerContentScrollView, useDrawerStatus } from "@react-navigation/drawer";
-import { List, Text } from "react-native-paper";
+import { Button, Divider, List, Text } from "react-native-paper";
 import type { FamilyDetail } from "@phr/shared";
 import { useApi } from "../lib/useApi";
+import { useAuth } from "../lib/authContext";
+import { useServerConfig } from "../lib/serverConfigContext";
+import { getLocalFamiliesForDrawer } from "../lib/data/families";
+
+function connectionStatusLabel(
+  mode: "server" | "standalone" | null,
+  serverUrl: string | null,
+  serverReachable: boolean | null
+): string {
+  if (mode === "standalone") return "Offline mode";
+  if (mode === "server" && serverUrl) {
+    return serverReachable === false ? `Offline — ${serverUrl} unreachable` : `Connected to ${serverUrl}`;
+  }
+  return "";
+}
 
 export default function DrawerContent(props: DrawerContentComponentProps) {
   const api = useApi();
+  const { logout } = useAuth();
+  const serverConfig = useServerConfig();
   const isOpen = useDrawerStatus() === "open";
   const [families, setFamilies] = useState<FamilyDetail[] | null>(null);
+  const [disconnecting, setDisconnecting] = useState(false);
 
   useEffect(() => {
-    if (!api || !isOpen) return;
+    if (!isOpen) return;
     let cancelled = false;
+
+    if (!api) {
+      getLocalFamiliesForDrawer().then((list) => {
+        if (!cancelled) setFamilies(list);
+      });
+      return () => {
+        cancelled = true;
+      };
+    }
+
     api.familyClient
       .listFamilies()
       .then((list) => Promise.all(list.map((f) => api.familyClient.getFamily(f.id))))
@@ -22,12 +50,24 @@ export default function DrawerContent(props: DrawerContentComponentProps) {
         if (!cancelled) setFamilies(detailed);
       })
       .catch(() => {
-        if (!cancelled) setFamilies([]);
+        // Live fetch failed (server temporarily unreachable) — fall back to
+        // whatever this device already has cached from the last sync.
+        getLocalFamiliesForDrawer().then((list) => {
+          if (!cancelled) setFamilies(list);
+        });
       });
     return () => {
       cancelled = true;
     };
   }, [api, isOpen]);
+
+  const statusLabel = connectionStatusLabel(serverConfig.mode, serverConfig.serverUrl, serverConfig.serverReachable);
+
+  async function handleDisconnect() {
+    setDisconnecting(true);
+    await serverConfig.setStandalone();
+    setDisconnecting(false);
+  }
 
   function go(familyId: string, patientId?: string) {
     props.navigation.closeDrawer();
@@ -41,6 +81,11 @@ export default function DrawerContent(props: DrawerContentComponentProps) {
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       <DrawerContentScrollView {...props} contentContainerStyle={styles.scrollContent}>
+        {statusLabel !== "" && (
+          <Text style={styles.status} variant="bodySmall">
+            {statusLabel}
+          </Text>
+        )}
         {families === null && (
           <Text style={styles.hint} variant="bodyMedium">
             Loading...
@@ -77,6 +122,23 @@ export default function DrawerContent(props: DrawerContentComponentProps) {
           </List.Accordion>
         ))}
       </DrawerContentScrollView>
+      {serverConfig.mode === "server" && (
+        <>
+          <Divider />
+          <Button mode="text" onPress={logout} style={styles.footerButton} textColor="#c62828">
+            Log out
+          </Button>
+          <Button
+            mode="text"
+            onPress={handleDisconnect}
+            loading={disconnecting}
+            style={styles.footerButton}
+            textColor="#c62828"
+          >
+            Disconnect and use this device offline
+          </Button>
+        </>
+      )}
     </SafeAreaView>
   );
 }
@@ -84,6 +146,8 @@ export default function DrawerContent(props: DrawerContentComponentProps) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContent: { paddingBottom: 8 },
+  status: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 4, opacity: 0.6 },
   hint: { padding: 16, opacity: 0.6 },
+  footerButton: { justifyContent: "flex-start" },
   emptyPatients: { paddingLeft: 56, paddingVertical: 8, opacity: 0.6 },
 });

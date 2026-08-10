@@ -74,6 +74,17 @@ export default function FamilyGroupsSection() {
     }
   }
 
+  if (!api) {
+    return (
+      <View>
+        <Text variant="bodyMedium" style={styles.empty}>
+          You&apos;re using this device offline with a default family. Connect to a server (Server tab)
+          to create or manage multiple family groups.
+        </Text>
+      </View>
+    );
+  }
+
   return (
     <View>
       {error && (

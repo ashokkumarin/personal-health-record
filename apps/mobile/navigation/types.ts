@@ -3,6 +3,7 @@ export type AppStackParamList = {
   FamilyDetail: { familyId: string };
   FamilyTimeline: { familyId: string; patientId?: string };
   Upload: { familyId: string; patientId?: string };
+  AddFamilyMember: { familyId: string };
   Settings: undefined;
   Profile: undefined;
   Admin: undefined;

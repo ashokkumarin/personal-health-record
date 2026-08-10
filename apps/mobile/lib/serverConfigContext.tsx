@@ -14,6 +14,21 @@ function clampSyncInterval(minutes: number): number {
   return Math.min(MAX_SYNC_INTERVAL_MINUTES, Math.max(MIN_SYNC_INTERVAL_MINUTES, Math.round(minutes)));
 }
 
+const HEALTH_CHECK_TIMEOUT_MS = 5000;
+
+async function checkServerHealth(url: string): Promise<boolean> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), HEALTH_CHECK_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${url}/health`, { signal: controller.signal });
+    return res.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
 interface ServerConfigValue {
   // True until the first-run check (SQLite read) has completed. RootNavigator
   // waits on this the same way it already waits on auth's `loading`.
@@ -22,6 +37,10 @@ interface ServerConfigValue {
   // a server address or standalone mode.
   mode: ServerMode | null;
   serverUrl: string | null;
+  // null = not yet checked (or check in flight); true/false = last known
+  // result. Only meaningful when mode === "server" — RootNavigator uses this
+  // to avoid showing the Login screen against a server it can't reach.
+  serverReachable: boolean | null;
   // Stable per-install id, generated once and persisted — sent as deviceId
   // on every sync/audit call so the server can distinguish devices.
   deviceId: string;
@@ -29,6 +48,7 @@ interface ServerConfigValue {
   setServerUrl: (url: string) => Promise<void>;
   setStandalone: () => Promise<void>;
   setSyncIntervalMinutes: (minutes: number) => Promise<void>;
+  recheckServer: () => Promise<void>;
   reset: () => Promise<void>;
 }
 
@@ -47,6 +67,7 @@ export function ServerConfigProvider({ children }: { children: ReactNode }) {
   const [syncIntervalMinutes, setSyncIntervalMinutesState] = useState<number>(
     DEFAULT_SYNC_INTERVAL_MINUTES
   );
+  const [serverReachable, setServerReachable] = useState<boolean | null>(null);
 
   useEffect(() => {
     (async () => {
@@ -66,6 +87,10 @@ export function ServerConfigProvider({ children }: { children: ReactNode }) {
       if (storedUrl) setServerUrlState(storedUrl);
       if (storedInterval) setSyncIntervalMinutesState(clampSyncInterval(Number(storedInterval)));
       setLoading(false);
+
+      if (storedMode === "server" && storedUrl) {
+        setServerReachable(await checkServerHealth(storedUrl));
+      }
     })();
   }, []);
 
@@ -74,6 +99,7 @@ export function ServerConfigProvider({ children }: { children: ReactNode }) {
       loading,
       mode,
       serverUrl,
+      serverReachable,
       deviceId,
       syncIntervalMinutes,
       async setServerUrl(url: string) {
@@ -90,12 +116,20 @@ export function ServerConfigProvider({ children }: { children: ReactNode }) {
         await serverConfigKv.set(MODE_KEY, "server");
         setServerUrlState(normalized);
         setMode("server");
+        // ServerSetupScreen already confirmed /health right before calling
+        // this, so it's known-reachable — no need to re-check immediately.
+        setServerReachable(true);
       },
       async setStandalone() {
         await serverConfigKv.set(MODE_KEY, "standalone");
         await serverConfigKv.delete(URL_KEY);
         setServerUrlState(null);
         setMode("standalone");
+      },
+      async recheckServer() {
+        if (!serverUrl) return;
+        setServerReachable(null);
+        setServerReachable(await checkServerHealth(serverUrl));
       },
       async setSyncIntervalMinutes(minutes: number) {
         const clamped = clampSyncInterval(minutes);
@@ -109,7 +143,7 @@ export function ServerConfigProvider({ children }: { children: ReactNode }) {
         setMode(null);
       },
     }),
-    [loading, mode, serverUrl, deviceId, syncIntervalMinutes]
+    [loading, mode, serverUrl, serverReachable, deviceId, syncIntervalMinutes]
   );
 
   return <ServerConfigContext.Provider value={value}>{children}</ServerConfigContext.Provider>;

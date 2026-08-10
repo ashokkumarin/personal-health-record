@@ -5,6 +5,7 @@ import { useServerConfig } from "../lib/serverConfigContext";
 import AuthStack from "./AuthStack";
 import AppDrawer from "./AppDrawer";
 import ServerSetupScreen from "../screens/ServerSetupScreen";
+import ServerUnreachableScreen from "../screens/ServerUnreachableScreen";
 import ChangePasswordScreen from "../screens/ChangePasswordScreen";
 
 export default function RootNavigator() {
@@ -22,6 +23,22 @@ export default function RootNavigator() {
   // Server not configured (nor standalone chosen) yet — first run.
   if (serverConfig.mode === null) {
     return <ServerSetupScreen />;
+  }
+
+  // Not logged in yet and the configured server can't be reached — showing
+  // Login here would be misleading (it'd just fail on submit with a generic
+  // error indistinguishable from a wrong password). Already-logged-in
+  // sessions skip this check entirely and fall through to AppDrawer, which
+  // works offline against locally cached data.
+  if (!token && serverConfig.mode === "server" && serverConfig.serverReachable !== true) {
+    if (serverConfig.serverReachable === null) {
+      return (
+        <View style={styles.center}>
+          <ActivityIndicator />
+        </View>
+      );
+    }
+    return <ServerUnreachableScreen />;
   }
 
   // Standalone mode has no login step; authContext synthesizes a token as

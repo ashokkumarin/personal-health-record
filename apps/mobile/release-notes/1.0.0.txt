@@ -1,0 +1,9 @@
+Initial release of PHR — a private, self-hosted home for your family's health records.
+
+- Store prescriptions, lab reports, bills, and notes in one place
+- Timeline view with search and filtering
+- Upload photos or PDFs of documents, with automatic thumbnails
+- Family groups with per-patient profiles
+- Records stay private by default
+- Connects to your own self-hosted PHR server — no third-party cloud storage
+- Configurable background sync (1–180 min)

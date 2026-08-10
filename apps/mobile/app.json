@@ -2,7 +2,7 @@
   "expo": {
     "name": "PHR",
     "slug": "phr-mobile",
-    "version": "0.0.1",
+    "version": "0.0.3",
     "orientation": "portrait",
     "userInterfaceStyle": "automatic",
     "icon": "./assets/icon.png",
@@ -11,14 +11,15 @@
     },
     "android": {
       "package": "com.phr.app",
-      "versionCode": 4,
+      "versionCode": 6,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#00695c"
       },
       "permissions": [
         "android.permission.RECORD_AUDIO"
-      ]
+      ],
+      "usesCleartextTraffic": true
     },
     "web": {
       "bundler": "metro"

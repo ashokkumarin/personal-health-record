@@ -1,0 +1,36 @@
+name: User story
+description: Track a requirement as a user story
+labels: [user-story]
+body:
+  - type: textarea
+    id: story
+    attributes:
+      label: Story
+      description: "As a [role], I want [capability], so that [benefit]."
+      placeholder: |
+        As a family member,
+        I want to ...,
+        so that ...
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: Acceptance criteria
+      description: What must be true for this story to be considered done?
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: false
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - web
+        - api
+        - mobile
+        - cross-cutting
+    validations:
+      required: true

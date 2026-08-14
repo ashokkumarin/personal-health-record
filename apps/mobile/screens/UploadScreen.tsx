@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
+import { Modal, Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { Button, SegmentedButtons, Text, TextInput } from "react-native-paper";
+import DateTimePicker, { DateTimePickerAndroid } from "@react-native-community/datetimepicker";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import type { NativeStackScreenProps } from "@react-navigation/native-stack";
@@ -22,6 +23,8 @@ export default function UploadScreen({ route, navigation }: Props) {
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(patientId ?? null);
   const [recordType, setRecordType] = useState<RecordType>("PRESCRIPTION");
   const [title, setTitle] = useState("");
+  const [capturedAt, setCapturedAt] = useState(new Date().toISOString().slice(0, 10));
+  const [iosPickerOpen, setIosPickerOpen] = useState(false);
   const [pickedFile, setPickedFile] = useState<PickedFile | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -32,6 +35,24 @@ export default function UploadScreen({ route, navigation }: Props) {
       .then(setPatients)
       .catch(() => setError("Could not load patients."));
   }, [familyId, patientId]);
+
+  function openDatePicker() {
+    const current = capturedAt ? new Date(capturedAt) : new Date();
+    if (Platform.OS === "android") {
+      DateTimePickerAndroid.open({
+        value: current,
+        mode: "date",
+        maximumDate: new Date(),
+        onChange: (event, selected) => {
+          if (event.type === "set" && selected) {
+            setCapturedAt(selected.toISOString().slice(0, 10));
+          }
+        },
+      });
+    } else {
+      setIosPickerOpen(true);
+    }
+  }
 
   async function pickImage() {
     const permission = await ImagePicker.requestCameraPermissionsAsync();
@@ -67,7 +88,7 @@ export default function UploadScreen({ route, navigation }: Props) {
       const record = await createLocalRecord(
         user.id,
         selectedPatientId,
-        { recordType, title },
+        { recordType, title, capturedAt },
         { uri: pickedFile.uri, type: pickedFile.type }
       );
       await recordLocalAuditEvent({
@@ -113,6 +134,17 @@ export default function UploadScreen({ route, navigation }: Props) {
 
       <TextInput label="Title" value={title} onChangeText={setTitle} style={styles.field} />
 
+      <TouchableOpacity onPress={openDatePicker}>
+        <TextInput
+          label="Document date"
+          value={capturedAt}
+          editable={false}
+          right={<TextInput.Icon icon="calendar" onPress={openDatePicker} />}
+          style={styles.field}
+          pointerEvents="none"
+        />
+      </TouchableOpacity>
+
       <View style={styles.pickers}>
         <Button mode="outlined" onPress={pickImage} style={styles.pickerButton}>
           Take a photo
@@ -136,6 +168,27 @@ export default function UploadScreen({ route, navigation }: Props) {
       <Button mode="contained" onPress={handleUpload} loading={submitting} style={styles.field}>
         Upload
       </Button>
+
+      {Platform.OS === "ios" && (
+        <Modal visible={iosPickerOpen} transparent animationType="slide">
+          <View style={styles.iosPickerBackdrop}>
+            <View style={styles.iosPickerSheet}>
+              <DateTimePicker
+                value={capturedAt ? new Date(capturedAt) : new Date()}
+                mode="date"
+                display="inline"
+                maximumDate={new Date()}
+                onChange={(_event, selected) => {
+                  if (selected) setCapturedAt(selected.toISOString().slice(0, 10));
+                }}
+              />
+              <Button mode="contained" onPress={() => setIosPickerOpen(false)}>
+                Done
+              </Button>
+            </View>
+          </View>
+        </Modal>
+      )}
     </ScrollView>
   );
 }
@@ -148,4 +201,6 @@ const styles = StyleSheet.create({
   pickerButton: { flex: 1 },
   selected: { marginBottom: 12, opacity: 0.7 },
   error: { color: "#c62828", marginBottom: 12 },
+  iosPickerBackdrop: { flex: 1, justifyContent: "flex-end", backgroundColor: "rgba(0,0,0,0.3)" },
+  iosPickerSheet: { backgroundColor: "#fff", padding: 16, gap: 12, borderTopLeftRadius: 16, borderTopRightRadius: 16 },
 });

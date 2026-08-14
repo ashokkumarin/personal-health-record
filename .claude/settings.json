@@ -1,7 +1,22 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx next *)"
+      "Bash(npx next *)",
+      "Bash(npm run test:api)",
+      "Bash(npx tsc *)",
+      "Bash(npm run build --workspace *)",
+      "Bash(git status)",
+      "Bash(git fetch *)",
+      "Bash(git checkout -b *)",
+      "Bash(git log *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(gh issue create *)",
+      "Bash(gh issue view *)",
+      "Bash(gh project item-add *)",
+      "Bash(gh pr view *)",
+      "Bash(docker compose ps)"
     ]
   }
 }

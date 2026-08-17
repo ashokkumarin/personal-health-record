@@ -40,9 +40,9 @@
     "react-native-worklets": "0.5.1"
   },
   "devDependencies": {
-    "@babel/core": "^7.24.0",
+    "@babel/core": "^8.0.1",
     "@types/react": "~19.1.10",
-    "babel-preset-expo": "~54.0.10",
-    "typescript": "^5.5.4"
+    "babel-preset-expo": "~57.0.7",
+    "typescript": "^7.0.2"
   }
 }
